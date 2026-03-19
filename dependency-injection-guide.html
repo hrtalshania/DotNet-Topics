@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dependency Injection in C# .NET — Full Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0b0e1a;
+    --surface: #111629;
+    --card: #161c33;
+    --border: #1e2744;
+    --accent: #4f8eff;
+    --accent2: #00e5b0;
+    --accent3: #ff6b6b;
+    --accent4: #ffd166;
+    --text: #dde4ff;
+    --muted: #7a85b0;
+    --code-bg: #090c18;
+    --singleton: #00c9a7;
+    --scoped: #4f8eff;
+    --transient: #ff7043;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* Noise overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 1000;
+    opacity: 0.4;
+  }
+
+  /* HERO */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0 8vw;
+    overflow: hidden;
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,142,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,142,255,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .hero-glow {
+    position: absolute;
+    top: -200px;
+    right: -200px;
+    width: 700px;
+    height: 700px;
+    background: radial-gradient(circle, rgba(79,142,255,0.12) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-glow2 {
+    position: absolute;
+    bottom: -100px;
+    left: -100px;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(0,229,176,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    border: 1px solid rgba(0,229,176,0.3);
+    padding: 4px 14px;
+    border-radius: 100px;
+    margin-bottom: 28px;
+    animation: fadeUp 0.6s ease both;
+  }
+
+  .hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.8rem, 7vw, 5.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: #fff;
+    margin-bottom: 24px;
+    animation: fadeUp 0.6s ease 0.1s both;
+  }
+
+  .hero h1 span {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 580px;
+    margin-bottom: 48px;
+    animation: fadeUp 0.6s ease 0.2s both;
+  }
+
+  .toc-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    animation: fadeUp 0.6s ease 0.3s both;
+  }
+
+  .toc-pills a {
+    text-decoration: none;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .toc-pills a:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(79,142,255,0.06);
+  }
+
+  /* MAIN LAYOUT */
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 60px 24px 120px;
+  }
+
+  /* SECTION */
+  .section {
+    margin-bottom: 80px;
+    animation: fadeUp 0.5s ease both;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .section-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    background: rgba(79,142,255,0.1);
+    border: 1px solid rgba(79,142,255,0.2);
+    padding: 4px 10px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .section-title {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(1.4rem, 3vw, 1.9rem);
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+  }
+
+  .section-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* CARDS */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+
+  .card-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent2);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title .icon { font-size: 1.1rem; }
+
+  p { margin-bottom: 14px; color: var(--text); }
+  p:last-child { margin-bottom: 0; }
+
+  /* CODE BLOCKS */
+  .code-wrap {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin: 20px 0;
+    overflow: hidden;
+  }
+
+  .code-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 18px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255,255,255,0.02);
+  }
+
+  .code-lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .code-dots { display: flex; gap: 6px; }
+  .code-dots span {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+  .code-dots span:nth-child(1) { background: #ff5f56; }
+  .code-dots span:nth-child(2) { background: #ffbd2e; }
+  .code-dots span:nth-child(3) { background: #27c93f; }
+
+  pre {
+    padding: 22px 24px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: #c9d1f5;
+  }
+
+  .kw { color: #82aaff; }
+  .cl { color: #89ddff; }
+  .st { color: #c3e88d; }
+  .cm { color: #546e7a; font-style: italic; }
+  .nu { color: #f78c6c; }
+  .fn { color: #82aaff; }
+  .pr { color: var(--accent2); }
+
+  /* COMPARE GRID */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  @media(max-width: 600px) { .compare { grid-template-columns: 1fr; } }
+
+  .compare-card {
+    border-radius: 10px;
+    padding: 22px;
+    border: 1px solid var(--border);
+  }
+
+  .compare-card.bad {
+    background: rgba(255,107,107,0.06);
+    border-color: rgba(255,107,107,0.2);
+  }
+
+  .compare-card.good {
+    background: rgba(0,229,176,0.05);
+    border-color: rgba(0,229,176,0.2);
+  }
+
+  .compare-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .compare-label.bad { color: var(--accent3); }
+  .compare-label.good { color: var(--accent2); }
+
+  .compare-card pre { padding: 0; background: none; border: none; }
+
+  /* LIFETIME CARDS */
+  .lifetime-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 20px 0;
+  }
+
+  @media(max-width: 700px) { .lifetime-grid { grid-template-columns: 1fr; } }
+
+  .lt-card {
+    border-radius: 12px;
+    padding: 24px;
+    border: 1px solid;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .lt-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .lt-card.singleton {
+    background: rgba(0,201,167,0.06);
+    border-color: rgba(0,201,167,0.25);
+  }
+  .lt-card.singleton::before { background: var(--singleton); }
+
+  .lt-card.scoped {
+    background: rgba(79,142,255,0.06);
+    border-color: rgba(79,142,255,0.25);
+  }
+  .lt-card.scoped::before { background: var(--scoped); }
+
+  .lt-card.transient {
+    background: rgba(255,112,67,0.06);
+    border-color: rgba(255,112,67,0.25);
+  }
+  .lt-card.transient::before { background: var(--transient); }
+
+  .lt-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    margin-bottom: 8px;
+  }
+  .lt-card.singleton .lt-name { color: var(--singleton); }
+  .lt-card.scoped .lt-name { color: var(--scoped); }
+  .lt-card.transient .lt-name { color: var(--transient); }
+
+  .lt-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    padding: 3px 10px;
+    border-radius: 100px;
+    display: inline-block;
+    margin-bottom: 14px;
+  }
+  .lt-card.singleton .lt-tag { background: rgba(0,201,167,0.15); color: var(--singleton); }
+  .lt-card.scoped .lt-tag { background: rgba(79,142,255,0.15); color: var(--scoped); }
+  .lt-card.transient .lt-tag { background: rgba(255,112,67,0.15); color: var(--transient); }
+
+  .lt-desc { font-size: 0.87rem; color: var(--muted); line-height: 1.6; }
+  .lt-example {
+    margin-top: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--text);
+    background: rgba(0,0,0,0.3);
+    padding: 8px 12px;
+    border-radius: 6px;
+  }
+
+  /* FLOW DIAGRAM */
+  .flow {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px 28px;
+    margin: 20px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    line-height: 2;
+    color: #c9d1f5;
+  }
+
+  .flow-node {
+    display: inline-block;
+    background: rgba(79,142,255,0.12);
+    border: 1px solid rgba(79,142,255,0.3);
+    color: var(--accent);
+    padding: 3px 14px;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+
+  /* RULES LIST */
+  .rules { list-style: none; margin: 0; padding: 0; }
+  .rules li {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.93rem;
+  }
+  .rules li:last-child { border-bottom: none; }
+  .rules .rule-icon {
+    font-size: 1rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* INFO BOX */
+  .info-box {
+    border-left: 3px solid var(--accent);
+    background: rgba(79,142,255,0.05);
+    padding: 18px 22px;
+    border-radius: 0 8px 8px 0;
+    margin: 20px 0;
+    font-size: 0.92rem;
+    color: var(--muted);
+  }
+  .info-box strong { color: var(--accent); }
+
+  .warn-box {
+    border-left: 3px solid var(--accent3);
+    background: rgba(255,107,107,0.05);
+    padding: 18px 22px;
+    border-radius: 0 8px 8px 0;
+    margin: 20px 0;
+    font-size: 0.92rem;
+    color: var(--muted);
+  }
+  .warn-box strong { color: var(--accent3); }
+
+  /* FOOTER */
+  footer {
+    text-align: center;
+    padding: 40px 24px;
+    border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* ANIMATIONS */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+  <div class="badge">C# · .NET · Design Pattern</div>
+  <h1>Dependency<br/><span>Injection</span><br/>Full Guide</h1>
+  <p class="hero-sub">A complete, practical walkthrough of DI in C# .NET — from the "why" to real service lifetimes, factory patterns, and testing strategies.</p>
+  <nav class="toc-pills">
+    <a href="#s1">What is DI?</a>
+    <a href="#s2">Interfaces</a>
+    <a href="#s3">Domain Model</a>
+    <a href="#s4">Implementations</a>
+    <a href="#s5">Manual DI</a>
+    <a href="#s6">DI Container</a>
+    <a href="#s7">Lifetimes</a>
+    <a href="#s8">Scoped vs Transient</a>
+    <a href="#s9">Factory Pattern</a>
+    <a href="#s10">Testing</a>
+    <a href="#s11">Rules</a>
+    <a href="#s12">Mental Model</a>
+  </nav>
+</header>
+
+<main>
+
+  <!-- SECTION 1 -->
+  <section class="section" id="s1">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2 class="section-title">What is Dependency Injection?</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">💡</span> Core Idea</div>
+      <p>Dependency Injection is a design pattern where a class <strong>does not create its own dependencies</strong>. Instead, dependencies are <strong>provided from outside</strong> — usually via the constructor.</p>
+      <p>Think of it like a restaurant: the chef (your class) doesn't go to the farm to get ingredients. Someone else brings them. The chef just cooks.</p>
+    </div>
+
+    <div class="compare">
+      <div class="compare-card bad">
+        <div class="compare-label bad">❌ Without DI — Bad Practice</div>
+        <div class="code-wrap">
+          <pre><span class="kw">class</span> <span class="cl">OrderService</span>
+{
+  <span class="kw">private</span> <span class="cl">CardPaymentService</span> _payment
+    = <span class="kw">new</span> <span class="cl">CardPaymentService</span>();
+  <span class="cm">// Tight coupling!</span>
+}</pre>
+        </div>
+        <p style="font-size:0.85rem; color:var(--muted); margin-top:12px;">Problems: hard to test, hard to replace, tightly coupled.</p>
+      </div>
+      <div class="compare-card good">
+        <div class="compare-label good">✅ With DI — Correct</div>
+        <div class="code-wrap">
+          <pre><span class="kw">class</span> <span class="cl">OrderService</span>
+{
+  <span class="kw">private readonly</span> <span class="cl">IPaymentService</span> _payment;
+
+  <span class="kw">public</span> <span class="fn">OrderService</span>(
+    <span class="cl">IPaymentService</span> payment)
+  {
+    _payment = payment;
+  }
+}</pre>
+        </div>
+        <p style="font-size:0.85rem; color:var(--muted); margin-top:12px;">Benefits: loose coupling, testable, swappable.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">✅</span> Benefits of DI</div>
+      <ul class="rules">
+        <li><span class="rule-icon">🔗</span><div><strong>Loose coupling</strong> — classes don't depend on concrete implementations</div></li>
+        <li><span class="rule-icon">🧪</span><div><strong>Easy testing</strong> — swap real services with fakes/mocks</div></li>
+        <li><span class="rule-icon">🔄</span><div><strong>Replace behavior</strong> without touching business logic</div></li>
+        <li><span class="rule-icon">🛠️</span><div><strong>Maintainability</strong> — clear separation of concerns</div></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SECTION 2 -->
+  <section class="section" id="s2">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2 class="section-title">Why Interfaces Are Mandatory</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <p>Interfaces are the backbone of DI. They define a <em>contract</em> that your classes depend on — not a concrete implementation. This is what makes DI powerful.</p>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Interface Definition</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">public interface</span> <span class="cl">IPaymentService</span>
+{
+    <span class="kw">void</span> <span class="fn">Pay</span>(<span class="kw">decimal</span> amount);
+}
+
+<span class="cm">// Implementation 1 — Real</span>
+<span class="kw">class</span> <span class="cl">CardPaymentService</span> : <span class="cl">IPaymentService</span>
+{
+    <span class="kw">public void</span> <span class="fn">Pay</span>(<span class="kw">decimal</span> amount) { <span class="cm">/* real logic */</span> }
+}
+
+<span class="cm">// Implementation 2 — Fake (for testing)</span>
+<span class="kw">class</span> <span class="cl">FakePaymentService</span> : <span class="cl">IPaymentService</span>
+{
+    <span class="kw">public void</span> <span class="fn">Pay</span>(<span class="kw">decimal</span> amount) { <span class="cm">/* simulated logic */</span> }
+}
+
+<span class="cm">// The business layer never knows which one it's using</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🎯</span> What Interfaces Enable</div>
+      <ul class="rules">
+        <li><span class="rule-icon">🔀</span><div><strong>Multiple implementations</strong> — real, fake, mock</div></li>
+        <li><span class="rule-icon">⚡</span><div><strong>Runtime switching</strong> — change behavior via config</div></li>
+        <li><span class="rule-icon">🧪</span><div><strong>Mocking/faking</strong> during unit tests</div></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SECTION 3 -->
+  <section class="section" id="s3">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2 class="section-title">Core Domain Model & Interfaces</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Order Model</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">public class</span> <span class="cl">Order</span>
+{
+    <span class="kw">public decimal</span> <span class="pr">Amount</span> { <span class="kw">get</span>; <span class="kw">set</span>; }
+
+    <span class="kw">public override string</span> <span class="fn">ToString</span>()
+    {
+        <span class="kw">return</span> <span class="st">$"Order Amount: {Amount}"</span>;
+    }
+}</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — All Core Interfaces</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">public interface</span> <span class="cl">ILoggerService</span>
+{
+    <span class="kw">void</span> <span class="fn">Log</span>(<span class="kw">string</span> message);
+}
+
+<span class="kw">public interface</span> <span class="cl">IPaymentService</span>
+{
+    <span class="kw">void</span> <span class="fn">Pay</span>(<span class="kw">decimal</span> amount);
+}
+
+<span class="kw">public interface</span> <span class="cl">IOrderRepository</span>
+{
+    <span class="kw">void</span> <span class="fn">Save</span>(<span class="cl">Order</span> order);
+}
+
+<span class="kw">public interface</span> <span class="cl">IOrderService</span>
+{
+    <span class="kw">void</span> <span class="fn">ProcessOrder</span>(<span class="cl">Order</span> order);
+}</pre>
+    </div>
+
+    <div class="info-box"><strong>Note:</strong> Notice that every interface focuses on a <em>single responsibility</em>. This is how you keep code clean and testable.</div>
+  </section>
+
+  <!-- SECTION 4 -->
+  <section class="section" id="s4">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2 class="section-title">Service Implementations</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Logger (Singleton)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">class</span> <span class="cl">ConsoleLoggerService</span> : <span class="cl">ILoggerService</span>
+{
+    <span class="kw">private readonly</span> <span class="cl">Guid</span> _id = <span class="cl">Guid</span>.<span class="fn">NewGuid</span>();
+    <span class="cm">// _id stays same for entire app lifetime (Singleton)</span>
+
+    <span class="kw">public void</span> <span class="fn">Log</span>(<span class="kw">string</span> message)
+    {
+        <span class="cl">Console</span>.<span class="fn">WriteLine</span>(<span class="st">$"[Logger {_id}] {message}"</span>);
+    }
+}</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Payment (Transient) & Fake</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">class</span> <span class="cl">CardPaymentService</span> : <span class="cl">IPaymentService</span>
+{
+    <span class="kw">private readonly</span> <span class="cl">Guid</span> _id = <span class="cl">Guid</span>.<span class="fn">NewGuid</span>();
+    <span class="cm">// _id changes each time DI creates a new instance (Transient)</span>
+
+    <span class="kw">public void</span> <span class="fn">Pay</span>(<span class="kw">decimal</span> amount)
+    {
+        <span class="cl">Console</span>.<span class="fn">WriteLine</span>(<span class="st">$"[Payment {_id}] Paid {amount} via Card"</span>);
+    }
+}
+
+<span class="cm">// Fake version — for testing only</span>
+<span class="kw">class</span> <span class="cl">FakePaymentService</span> : <span class="cl">IPaymentService</span>
+{
+    <span class="kw">private readonly</span> <span class="cl">Guid</span> _id = <span class="cl">Guid</span>.<span class="fn">NewGuid</span>();
+
+    <span class="kw">public void</span> <span class="fn">Pay</span>(<span class="kw">decimal</span> amount)
+    {
+        <span class="cl">Console</span>.<span class="fn">WriteLine</span>(<span class="st">$"[FAKE PAYMENT {_id}] Simulating {amount}"</span>);
+    }
+}</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Repository (Scoped)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">class</span> <span class="cl">OrderRepository</span> : <span class="cl">IOrderRepository</span>
+{
+    <span class="kw">private readonly</span> <span class="cl">Guid</span> _id = <span class="cl">Guid</span>.<span class="fn">NewGuid</span>();
+    <span class="cm">// _id stays same within one request scope (Scoped)</span>
+
+    <span class="kw">public void</span> <span class="fn">Save</span>(<span class="cl">Order</span> order)
+    {
+        <span class="cl">Console</span>.<span class="fn">WriteLine</span>(<span class="st">$"[Repo {_id}] Order saved"</span>);
+    }
+}</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — OrderService (Business Layer)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">class</span> <span class="cl">OrderService</span> : <span class="cl">IOrderService</span>
+{
+    <span class="kw">private readonly</span> <span class="cl">IPaymentService</span> _paymentService;
+    <span class="kw">private readonly</span> <span class="cl">ILoggerService</span> _loggerService;
+    <span class="kw">private readonly</span> <span class="cl">IOrderRepository</span> _orderRepository;
+
+    <span class="kw">public</span> <span class="fn">OrderService</span>(
+        <span class="cl">IPaymentService</span> paymentService,
+        <span class="cl">ILoggerService</span> loggerService,
+        <span class="cl">IOrderRepository</span> orderRepository)
+    {
+        _paymentService = paymentService;
+        _loggerService = loggerService;
+        _orderRepository = orderRepository;
+    }
+
+    <span class="kw">public void</span> <span class="fn">ProcessOrder</span>(<span class="cl">Order</span> order)
+    {
+        _loggerService.<span class="fn">Log</span>(<span class="st">"Order processing started"</span>);
+
+        _paymentService.<span class="fn">Pay</span>(order.Amount);
+        _paymentService.<span class="fn">Pay</span>(<span class="nu">300</span>);       <span class="cm">// Same instance — NOT a new object</span>
+
+        _orderRepository.<span class="fn">Save</span>(order);
+
+        _loggerService.<span class="fn">Log</span>(<span class="st">"Order processing completed"</span>);
+    }
+}</pre>
+    </div>
+  </section>
+
+  <!-- SECTION 5 -->
+  <section class="section" id="s5">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2 class="section-title">Manual DI — The Old Way</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <p>Before DI containers existed, developers wired everything by hand. This works, but it becomes painful fast.</p>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Manual Wiring</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">var</span> logger  = <span class="kw">new</span> <span class="cl">ConsoleLoggerService</span>();
+<span class="kw">var</span> payment = <span class="kw">new</span> <span class="cl">CardPaymentService</span>();
+<span class="kw">var</span> repo    = <span class="kw">new</span> <span class="cl">OrderRepository</span>();
+
+<span class="kw">var</span> orderService = <span class="kw">new</span> <span class="cl">OrderService</span>(payment, logger, repo);
+
+<span class="kw">var</span> order = <span class="kw">new</span> <span class="cl">Order</span> { Amount = <span class="nu">500</span> };
+orderService.<span class="fn">ProcessOrder</span>(order);</pre>
+    </div>
+
+    <div class="warn-box"><strong>Problems:</strong> Object creation is scattered everywhere, hard to switch implementations, and poor testability. As the app grows, this becomes unmanageable.</div>
+  </section>
+
+  <!-- SECTION 6 -->
+  <section class="section" id="s6">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2 class="section-title">DI Container — The Correct Way</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <p>The DI container (ServiceCollection in .NET) handles all object creation for you. You just register your services once and let the container resolve them.</p>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Service Registration</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">var</span> services = <span class="kw">new</span> <span class="cl">ServiceCollection</span>();
+
+<span class="cm">// Register with lifetimes</span>
+services.<span class="fn">AddSingleton</span>&lt;<span class="cl">ILoggerService</span>, <span class="cl">ConsoleLoggerService</span>&gt;();
+services.<span class="fn">AddTransient</span>&lt;<span class="cl">IPaymentService</span>, <span class="cl">CardPaymentService</span>&gt;();
+services.<span class="fn">AddScoped</span>&lt;<span class="cl">IOrderRepository</span>, <span class="cl">OrderRepository</span>&gt;();
+services.<span class="fn">AddScoped</span>&lt;<span class="cl">IOrderService</span>, <span class="cl">OrderService</span>&gt;();
+
+<span class="kw">var</span> serviceProvider = services.<span class="fn">BuildServiceProvider</span>();</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Resolving Services (Per Request / Scope)</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">for</span> (<span class="kw">int</span> i = <span class="nu">1</span>; i &lt;= <span class="nu">2</span>; i++)
+{
+    <span class="cl">Console</span>.<span class="fn">WriteLine</span>(<span class="st">$"\n--- REQUEST {i} ---"</span>);
+
+    <span class="kw">using var</span> scope = serviceProvider.<span class="fn">CreateScope</span>();
+
+    <span class="kw">var</span> orderService = scope.ServiceProvider
+                            .<span class="fn">GetRequiredService</span>&lt;<span class="cl">IOrderService</span>&gt;();
+
+    <span class="kw">var</span> order = <span class="kw">new</span> <span class="cl">Order</span> { Amount = <span class="nu">500</span> };
+    orderService.<span class="fn">ProcessOrder</span>(order);
+}
+<span class="cm">// Scoped services are disposed at end of each using block</span></pre>
+    </div>
+
+    <div class="info-box"><strong>Key insight:</strong> Always resolve scoped services inside a <code>CreateScope()</code> block. Never resolve scoped services directly from the root provider — this causes memory leaks.</div>
+  </section>
+
+  <!-- SECTION 7 -->
+  <section class="section" id="s7">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2 class="section-title">Service Lifetimes</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="lifetime-grid">
+      <div class="lt-card singleton">
+        <div class="lt-name">Singleton</div>
+        <div class="lt-tag">AddSingleton</div>
+        <div class="lt-desc">One instance shared across the <strong>entire application lifetime</strong>. Created once, reused everywhere.</div>
+        <div class="lt-example">✅ Logger, Configuration, Cache</div>
+      </div>
+      <div class="lt-card scoped">
+        <div class="lt-name">Scoped</div>
+        <div class="lt-tag">AddScoped</div>
+        <div class="lt-desc">One instance <strong>per request or scope</strong>. Same object within a request, new object for next request.</div>
+        <div class="lt-example">✅ Repository, DbContext, UnitOfWork</div>
+      </div>
+      <div class="lt-card transient">
+        <div class="lt-name">Transient</div>
+        <div class="lt-tag">AddTransient</div>
+        <div class="lt-desc">New instance <strong>every time the service is resolved</strong> from the DI container.</div>
+        <div class="lt-example">✅ Payment service, Email sender</div>
+      </div>
+    </div>
+
+    <div class="info-box"><strong>Tip:</strong> The GUID trick in the code examples makes lifetimes observable — the same GUID = same instance. Different GUID = new instance.</div>
+  </section>
+
+  <!-- SECTION 8 -->
+  <section class="section" id="s8">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <h2 class="section-title">Scoped vs Transient — Key Confusion</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <p>This is the most common confusion in DI. Both create new instances across requests — but their behavior <em>within</em> a request is very different.</p>
+
+    <div class="compare">
+      <div class="compare-card" style="background: rgba(255,112,67,0.06); border-color: rgba(255,112,67,0.2);">
+        <div class="compare-label" style="color: var(--transient);">⚡ TRANSIENT — New per resolution</div>
+        <div class="code-wrap">
+          <pre><span class="cm">// Two different instances in same request</span>
+<span class="cl">OrderService</span>     → PaymentService (A)
+<span class="cl">InventoryService</span> → PaymentService (B)</pre>
+        </div>
+        <p style="font-size:0.85rem; color:var(--muted); margin-top:12px;">Each service that needs IPaymentService gets its own fresh instance.</p>
+      </div>
+      <div class="compare-card" style="background: rgba(79,142,255,0.06); border-color: rgba(79,142,255,0.2);">
+        <div class="compare-label" style="color: var(--scoped);">🔵 SCOPED — Same per request</div>
+        <div class="code-wrap">
+          <pre><span class="cm">// Same instance shared within one request</span>
+<span class="cl">OrderService</span>     → Repository (X)
+<span class="cl">InventoryService</span> → Repository (X)</pre>
+        </div>
+        <p style="font-size:0.85rem; color:var(--muted); margin-top:12px;">All services within one scope share the same Repository instance.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🔍</span> Why PaymentService GUID Is Same When Called Twice</div>
+      <div class="code-wrap">
+        <pre><span class="cm">// Inside ProcessOrder:</span>
+_paymentService.<span class="fn">Pay</span>(<span class="nu">500</span>);   <span class="cm">// ← NOT a new object</span>
+_paymentService.<span class="fn">Pay</span>(<span class="nu">300</span>);   <span class="cm">// ← Same instance, same GUID</span>
+
+<span class="cm">// DI injects once at construction time</span>
+<span class="cm">// Calling a method does NOT trigger DI again</span></pre>
+      </div>
+      <p>DI happens only at <strong>object construction time</strong>. Calling methods on an already-injected service does not create new instances — regardless of Transient/Scoped/Singleton.</p>
+    </div>
+  </section>
+
+  <!-- SECTION 9 -->
+  <section class="section" id="s9">
+    <div class="section-header">
+      <span class="section-num">09</span>
+      <h2 class="section-title">Factory Pattern — New Instance Per Call</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <p>If you genuinely need a <strong>new instance on every method call</strong> (not just per DI resolution), use a factory instead.</p>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Factory Injection</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="kw">class</span> <span class="cl">OrderService</span> : <span class="cl">IOrderService</span>
+{
+    <span class="kw">private readonly</span> <span class="cl">Func</span>&lt;<span class="cl">IPaymentService</span>&gt; _paymentFactory;
+
+    <span class="kw">public</span> <span class="fn">OrderService</span>(<span class="cl">Func</span>&lt;<span class="cl">IPaymentService</span>&gt; paymentFactory, ...)
+    {
+        _paymentFactory = paymentFactory;
+    }
+
+    <span class="kw">public void</span> <span class="fn">ProcessOrder</span>(<span class="cl">Order</span> order)
+    {
+        <span class="kw">var</span> p1 = _paymentFactory();   <span class="cm">// New instance</span>
+        p1.<span class="fn">Pay</span>(<span class="nu">500</span>);
+
+        <span class="kw">var</span> p2 = _paymentFactory();   <span class="cm">// Another new instance</span>
+        p2.<span class="fn">Pay</span>(<span class="nu">300</span>);
+        <span class="cm">// p1 and p2 will have DIFFERENT GUIDs</span>
+    }
+}</pre>
+    </div>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Register Factory</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="cm">// Register the factory — .NET supports Func&lt;T&gt; automatically</span>
+services.<span class="fn">AddTransient</span>&lt;<span class="cl">IPaymentService</span>, <span class="cl">CardPaymentService</span>&gt;();
+services.<span class="fn">AddTransient</span>&lt;<span class="cl">IOrderService</span>, <span class="cl">OrderService</span>&gt;();
+<span class="cm">// The container will automatically resolve Func&lt;IPaymentService&gt;</span></pre>
+    </div>
+
+    <div class="info-box"><strong>When to use factories:</strong> Use this pattern when you need a fresh object per method call — e.g., a fresh HTTP client per request, a new transaction per operation.</div>
+  </section>
+
+  <!-- SECTION 10 -->
+  <section class="section" id="s10">
+    <div class="section-header">
+      <span class="section-num">10</span>
+      <h2 class="section-title">Testing with Fake Services</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <p>One of the biggest DI benefits: switch your entire payment system from real to fake with <strong>one line change</strong> — zero changes to business code.</p>
+
+    <div class="code-wrap">
+      <div class="code-label"><span class="code-lang">C# — Swap Real → Fake</span><div class="code-dots"><span></span><span></span><span></span></div></div>
+      <pre><span class="cm">// Production — real payments</span>
+<span class="cm">// services.AddTransient&lt;IPaymentService, CardPaymentService&gt;();</span>
+
+<span class="cm">// Testing — fake/simulated payments</span>
+services.<span class="fn">AddTransient</span>&lt;<span class="cl">IPaymentService</span>, <span class="cl">FakePaymentService</span>&gt;();
+
+<span class="cm">// Everything else stays identical ✅</span>
+<span class="cm">// OrderService never changes ✅</span>
+<span class="cm">// Business logic untouched ✅</span></pre>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🧪</span> What This Means for Testing</div>
+      <ul class="rules">
+        <li><span class="rule-icon">✔️</span><div>No changes in <code>OrderService</code> — tests are purely configuration</div></li>
+        <li><span class="rule-icon">✔️</span><div>No real payments charged — safe to run in CI/CD</div></li>
+        <li><span class="rule-icon">✔️</span><div>Same flow tested — only the implementation is swapped</div></li>
+        <li><span class="rule-icon">✔️</span><div>This is the <em>real</em> DI benefit — testability by design</div></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SECTION 11 -->
+  <section class="section" id="s11">
+    <div class="section-header">
+      <span class="section-num">11</span>
+      <h2 class="section-title">Critical DI Rules for Production</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <ul class="rules">
+      <li><span class="rule-icon">🚫</span><div><strong>Never inject concrete classes</strong> — always depend on interfaces, never <code>new CardPaymentService()</code> inside business classes</div></li>
+      <li><span class="rule-icon">🚫</span><div><strong>Never resolve scoped services from the root provider</strong> — always use <code>CreateScope()</code>, otherwise scoped services behave like singletons (memory leaks)</div></li>
+      <li><span class="rule-icon">🚫</span><div><strong>Never modify business logic for testing</strong> — if you have to change <code>OrderService</code> to test it, your DI is wrong</div></li>
+      <li><span class="rule-icon">⚠️</span><div><strong>All registrations before <code>BuildServiceProvider()</code></strong> — you cannot register services after the provider is built</div></li>
+      <li><span class="rule-icon">✅</span><div><strong>DbContext must always be Scoped</strong> — one DbContext per request, never Singleton (causes concurrency issues)</div></li>
+    </ul>
+  </section>
+
+  <!-- SECTION 12 -->
+  <section class="section" id="s12">
+    <div class="section-header">
+      <span class="section-num">12</span>
+      <h2 class="section-title">Mental Model — The Full Picture</h2>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="flow">
+      <div><span class="flow-node">Program.cs</span> — Composition Root</div>
+      <div>&nbsp;&nbsp;├─ Register services (AddSingleton / AddScoped / AddTransient)</div>
+      <div>&nbsp;&nbsp;├─ <span class="flow-node">BuildServiceProvider()</span></div>
+      <div>&nbsp;&nbsp;├─ <span class="flow-node">CreateScope()</span> — one per request</div>
+      <div>&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ Resolve <span class="flow-node">IOrderService</span></div>
+      <div>&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ DI injects IPaymentService (Transient → new instance)</div>
+      <div>&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ DI injects ILoggerService  (Singleton → shared instance)</div>
+      <div>&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└─ DI injects IOrderRepository (Scoped → same per request)</div>
+      <div>&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;├─ Run <span class="flow-node">ProcessOrder()</span></div>
+      <div>&nbsp;&nbsp;│&nbsp;&nbsp;&nbsp;└─ Dispose scoped services at end of <code>using</code></div>
+      <div>&nbsp;&nbsp;└─ Repeat for next request</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><span class="icon">🔑</span> Summary — Lock These In</div>
+      <ul class="rules">
+        <li><span class="rule-icon">1️⃣</span><div><strong>DI = control inversion</strong> — the container creates objects, not you</div></li>
+        <li><span class="rule-icon">2️⃣</span><div><strong>Interfaces enable runtime switching</strong> — swap implementations without touching business code</div></li>
+        <li><span class="rule-icon">3️⃣</span><div><strong>Lifetimes control reuse</strong> — Singleton (app), Scoped (request), Transient (per resolution)</div></li>
+        <li><span class="rule-icon">4️⃣</span><div><strong>Scoped ≠ Transient</strong> — Scoped shares within a request, Transient never shares</div></li>
+        <li><span class="rule-icon">5️⃣</span><div><strong>DI container replaces manual wiring</strong> — no more <code>new</code> in business code</div></li>
+        <li><span class="rule-icon">6️⃣</span><div><strong>Testing = just configuration</strong> — swap implementations at registration, business code unchanged</div></li>
+      </ul>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <p>Dependency Injection in C# .NET — Complete Practical Guide &nbsp;·&nbsp; Built from source documentation</p>
+</footer>
+
+</body>
+</html>
