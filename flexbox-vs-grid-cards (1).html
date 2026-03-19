@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Flexbox vs Grid — 5 Cards in 12-Col Layout</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root {
+      --bg:        #0d0f14;
+      --surface:   #161921;
+      --border:    #252830;
+      --accent-a:  #5c6ef5;
+      --accent-b:  #f5855c;
+      --text-1:    #e8eaf0;
+      --text-2:    #8b90a0;
+      --green:     #4ade80;
+      --tag-bg:    #1e2130;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-1);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    /* ── Page header ─────────────────────────────── */
+    .page-header {
+      padding: 56px 0 40px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 52px;
+    }
+    .page-header h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .page-header h1 span.vs {
+      color: var(--text-2);
+      font-weight: 700;
+    }
+    .page-header p {
+      color: var(--text-2);
+      max-width: 560px;
+      margin-top: 10px;
+      font-size: 14.5px;
+    }
+
+    /* ── Section labels ───────────────────────────── */
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .section-label .badge-method {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 4px;
+    }
+    .badge-flex  { background: rgba(92,110,245,.18); color: var(--accent-a); border: 1px solid rgba(92,110,245,.35); }
+    .badge-grid  { background: rgba(245,133,92,.18); color: var(--accent-b); border: 1px solid rgba(245,133,92,.35); }
+    .badge-winner{ background: rgba(74,222,128,.15); color: var(--green);    border: 1px solid rgba(74,222,128,.3); }
+
+    .section-label h2 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text-1);
+    }
+    .section-description {
+      color: var(--text-2);
+      font-size: 13.5px;
+      margin-bottom: 28px;
+      max-width: 680px;
+      line-height: 1.7;
+    }
+
+    /* ── Cards shared styles ──────────────────────── */
+    .card-custom {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 20px;
+      transition: border-color .2s, transform .2s;
+    }
+    .card-custom:hover {
+      border-color: #353944;
+      transform: translateY(-2px);
+    }
+    .card-custom .card-icon {
+      width: 38px; height: 38px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      margin-bottom: 14px;
+    }
+    .card-custom h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: var(--text-1);
+    }
+    .card-custom p {
+      font-size: 13.5px;
+      color: var(--text-2);
+      line-height: 1.65;
+    }
+    .card-tag {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10.5px;
+      background: var(--tag-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 7px;
+      color: var(--text-2);
+      margin-top: 12px;
+    }
+
+    /* icon color variants */
+    .icon-a { background: rgba(92,110,245,.15); }
+    .icon-b { background: rgba(245,133,92,.15); }
+    .icon-c { background: rgba(74,222,128,.12); }
+    .icon-d { background: rgba(251,191,36,.12); }
+    .icon-e { background: rgba(192,132,252,.12); }
+
+    /* ── FLEXBOX APPROACH ─────────────────────────── */
+    .flex-card-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    /* Each card = 1/5 of row minus gaps */
+    .flex-card-row .card-custom {
+      flex: 1 1 calc(20% - 13px);
+      min-width: 180px;
+    }
+
+    /* ── GRID APPROACH (old — fixed 5 cols) ─────────── */
+    .grid-card-row {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 16px;
+    }
+
+    /* ── GRID AUTO-FIT — zero media queries ──────────
+       auto-fit: collapses empty tracks → cards STRETCH
+       minmax(min, 1fr):
+         min  = smallest a card can be before wrapping
+         1fr  = share all leftover space equally        */
+    .grid-auto-fit {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── GRID AUTO-FILL — zero media queries ─────────
+       auto-fill: keeps empty ghost tracks → cards keep
+       their natural size and DON'T stretch to fill gaps */
+    .grid-auto-fill {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── Code block ───────────────────────────────── */
+    .code-block {
+      background: #10121a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 22px;
+      margin: 28px 0 48px;
+      overflow-x: auto;
+    }
+    .code-block pre {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12.5px;
+      line-height: 1.75;
+      color: var(--text-1);
+      white-space: pre;
+    }
+    .code-block .kw  { color: var(--accent-a); }
+    .code-block .val { color: var(--accent-b); }
+    .code-block .cmt { color: #444c60; font-style: italic; }
+    .code-block .prop{ color: #7dd3fc; }
+    .code-block .sel { color: var(--green); }
+
+    /* ── Comparison table ─────────────────────────── */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      margin: 10px 0 56px;
+    }
+    .compare-table th {
+      font-family: 'Syne', sans-serif;
+      font-size: 12px;
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      color: var(--text-2);
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+    .compare-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-2);
+      vertical-align: top;
+    }
+    .compare-table tr:last-child td { border-bottom: none; }
+    .compare-table td:first-child { color: var(--text-1); font-weight: 500; }
+    .compare-table .good { color: var(--green); }
+    .compare-table .bad  { color: #f87171; }
+    .compare-table .neutral { color: #fbbf24; }
+
+    /* ── Verdict banner ───────────────────────────── */
+    .verdict {
+      background: linear-gradient(135deg, rgba(245,133,92,.07) 0%, rgba(92,110,245,.07) 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 30px 32px;
+      margin-bottom: 60px;
+    }
+    .verdict h3 {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .verdict p { color: var(--text-2); font-size: 13.5px; line-height: 1.75; }
+    .verdict strong { color: var(--text-1); }
+
+    /* ── Responsive ───────────────────────────────── */
+    @media (max-width: 768px) {
+      .grid-card-row { grid-template-columns: repeat(2, 1fr); }
+      .flex-card-row .card-custom { flex: 1 1 calc(50% - 8px); }
+    }
+    @media (max-width: 480px) {
+      .grid-card-row { grid-template-columns: 1fr; }
+      .flex-card-row .card-custom { flex: 1 1 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container-xl">
+
+  <!-- ── Header ─────────────────────────────────── -->
+  <div class="page-header">
+    <h1>Flexbox <span class="vs">vs</span> Grid</h1>
+    <p>Two approaches to placing 5 equal-width cards inside a 12-column Bootstrap layout — with different content heights in each card.</p>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════
+       APPROACH 1 — FLEXBOX
+  ════════════════════════════════════════════════ -->
+  <div class="row">
+    <div class="col-12">
+
+      <div class="section-label">
+        <span class="badge-method badge-flex">Method 1</span>
+        <h2>Flexbox approach</h2>
+      </div>
+      <p class="section-description">
+        Use <code>display: flex</code> with <code>flex-wrap: wrap</code> on the row container.
+        Each card gets <code>flex: 1 1 calc(20% - 13px)</code> so they share space equally.
+        Cards in the <em>same row</em> will auto-stretch to match the tallest sibling — but only within that row.
+      </p>
+
+      <!-- Live demo -->
+      <div class="flex-card-row">
+        <div class="card-custom">
+          <div class="card-icon icon-a">🚀</div>
+          <h3>Deployment</h3>
+          <p>Push to production with a single command. Zero-downtime rolling updates.</p>
+          <span class="card-tag">devops</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-b">🔐</div>
+          <h3>Auth & Security</h3>
+          <p>Role-based access control, MFA enforcement, and automatic session expiry. All your security concerns covered out of the box, no extra config needed.</p>
+          <span class="card-tag">security</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-c">📊</div>
+          <h3>Analytics</h3>
+          <p>Real-time dashboards with retention funnels, cohort analysis, and custom KPIs. Supports BigQuery and Redshift as export targets.</p>
+          <span class="card-tag">data</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-d">⚡</div>
+          <h3>Edge Cache</h3>
+          <p>Sub-10ms global response times.</p>
+          <span class="card-tag">cdn</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-e">🤖</div>
+          <h3>AI Copilot</h3>
+          <p>Inline suggestions powered by a fine-tuned model trained on your codebase. Works with VS Code and JetBrains IDEs. Supports context windows up to 128k tokens.</p>
+          <span class="card-tag">ai</span>
+        </div>
+      </div>
+
+      <!-- Code -->
+      <div class="code-block">
+        <pre><span class="cmt">/* ── Flexbox: 5 equal cards ── */</span>
+
+<span class="sel">.flex-card-row</span> {
+  <span class="prop">display</span>: <span class="val">flex</span>;
+  <span class="prop">flex-wrap</span>: <span class="val">wrap</span>;          <span class="cmt">/* allow wrapping on small screens */</span>
+  <span class="prop">gap</span>: <span class="val">16px</span>;
+}
+
+<span class="sel">.flex-card-row .card</span> {
+  <span class="prop">flex</span>: <span class="val">1 1 calc(20% - 13px)</span>;  <span class="cmt">/* grow | shrink | base-width */</span>
+  <span class="prop">min-width</span>: <span class="val">180px</span>;          <span class="cmt">/* collapse gracefully */</span>
+}
+
+<span class="cmt">/* Bootstrap wrapper (12 cols) */</span>
+<span class="sel">&lt;div class="col-12"&gt;</span>          <span class="cmt">/* full 12-col width */</span>
+  <span class="sel">&lt;div class="flex-card-row"&gt;</span>  <span class="cmt">/* flex container lives here */</span>
+    <span class="sel">&lt;div class="card"&gt;</span>...&lt;/div&gt; × 5
+  &lt;/div&gt;
+&lt;/div&gt;</pre>
+      </div>
+
+    </div>
+  </div><!-- /row -->
+
+
+  <!-- ════════════════════════════════════════════════
+       APPROACH 2 — CSS GRID
+  ════════════════════════════════════════════════ -->
+  <div class="row">
+    <div class="col-12">
+
+      <div class="section-label">
+        <span class="badge-method badge-grid">Method 2</span>
+        <h2>CSS Grid — fixed 5 cols <code style="font-size:0.8rem;color:var(--text-2)">(needs media queries)</code></h2>
+      </div>
+      <p class="section-description">
+        Uses <code>repeat(5, 1fr)</code> — always exactly 5 columns regardless of screen size. Needs <code>@media</code> queries to collapse on mobile.
+      </p>
+
+      <!-- Live demo -->
+      <div class="grid-card-row">
+        <div class="card-custom">
+          <div class="card-icon icon-a">🚀</div>
+          <h3>Deployment</h3>
+          <p>Push to production with a single command. Zero-downtime rolling updates.</p>
+          <span class="card-tag">devops</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-b">🔐</div>
+          <h3>Auth & Security</h3>
+          <p>Role-based access control, MFA enforcement, and automatic session expiry. All your security concerns covered out of the box, no extra config needed.</p>
+          <span class="card-tag">security</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-c">📊</div>
+          <h3>Analytics</h3>
+          <p>Real-time dashboards with retention funnels, cohort analysis, and custom KPIs. Supports BigQuery and Redshift as export targets.</p>
+          <span class="card-tag">data</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-d">⚡</div>
+          <h3>Edge Cache</h3>
+          <p>Sub-10ms global response times.</p>
+          <span class="card-tag">cdn</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-e">🤖</div>
+          <h3>AI Copilot</h3>
+          <p>Inline suggestions powered by a fine-tuned model trained on your codebase. Works with VS Code and JetBrains IDEs. Supports context windows up to 128k tokens.</p>
+          <span class="card-tag">ai</span>
+        </div>
+      </div>
+
+      <!-- Code -->
+      <div class="code-block">
+        <pre><span class="cmt">/* ── CSS Grid fixed cols — NEEDS @media ── */</span>
+
+<span class="sel">.grid-card-row</span> {
+  <span class="prop">display</span>: <span class="val">grid</span>;
+  <span class="prop">grid-template-columns</span>: <span class="val">repeat(5, 1fr)</span>;
+  <span class="prop">gap</span>: <span class="val">16px</span>;
+}
+
+<span class="cmt">/* Still need these to handle small screens ↓ */</span>
+<span class="kw">@media</span> (max-width: <span class="val">768px</span>) {
+  <span class="sel">.grid-card-row</span> { <span class="prop">grid-template-columns</span>: <span class="val">repeat(2, 1fr)</span>; }
+}
+<span class="kw">@media</span> (max-width: <span class="val">480px</span>) {
+  <span class="sel">.grid-card-row</span> { <span class="prop">grid-template-columns</span>: <span class="val">1fr</span>; }
+}</pre>
+      </div>
+
+    </div>
+  </div><!-- /row -->
+
+
+  <!-- ════════════════════════════════════════════════
+       METHOD 3 — auto-fit (ZERO media queries)
+  ════════════════════════════════════════════════ -->
+  <div class="row">
+    <div class="col-12">
+
+      <div class="section-label">
+        <span class="badge-method badge-grid">Method 3</span>
+        <span class="badge-method badge-winner">✦ Best — Zero @media</span>
+        <h2>auto-fit + minmax — fully responsive, one line</h2>
+      </div>
+      <p class="section-description">
+        Replace <code>repeat(5, 1fr)</code> with <code>repeat(<strong>auto-fit</strong>, minmax(180px, 1fr))</code>.
+        The browser itself decides how many columns fit. When space is tight, cards wrap to the next row
+        and the remaining cards <strong>stretch</strong> to fill the full width.
+        <strong>Zero media queries needed.</strong>
+      </p>
+
+      <div class="grid-auto-fit">
+        <div class="card-custom">
+          <div class="card-icon icon-a">🚀</div>
+          <h3>Deployment</h3>
+          <p>Push to production with a single command. Zero-downtime rolling updates.</p>
+          <span class="card-tag">devops</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-b">🔐</div>
+          <h3>Auth & Security</h3>
+          <p>Role-based access control, MFA enforcement, and automatic session expiry. All your security concerns covered out of the box, no extra config needed.</p>
+          <span class="card-tag">security</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-c">📊</div>
+          <h3>Analytics</h3>
+          <p>Real-time dashboards with retention funnels, cohort analysis, and custom KPIs. Supports BigQuery and Redshift as export targets.</p>
+          <span class="card-tag">data</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-d">⚡</div>
+          <h3>Edge Cache</h3>
+          <p>Sub-10ms global response times.</p>
+          <span class="card-tag">cdn</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-e">🤖</div>
+          <h3>AI Copilot</h3>
+          <p>Inline suggestions powered by a fine-tuned model trained on your codebase. Works with VS Code and JetBrains IDEs. Supports context windows up to 128k tokens.</p>
+          <span class="card-tag">ai</span>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <pre><span class="cmt">/* ── auto-fit: ZERO media queries needed ── */</span>
+
+<span class="sel">.grid-auto-fit</span> {
+  <span class="prop">display</span>: <span class="val">grid</span>;
+  <span class="prop">grid-template-columns</span>: <span class="val">repeat(auto-fit, minmax(180px, 1fr))</span>;
+  <span class="prop">gap</span>: <span class="val">16px</span>;
+}
+
+<span class="cmt">/*  auto-fit   → collapses empty tracks, so remaining
+               cards GROW and fill the full row width.
+    minmax()   → card is at least 180px wide.
+               once there's no room for another 180px
+               column, that card wraps to a new row.
+    1fr        → all cards share leftover space equally. */</span>
+
+<span class="cmt">/* That's it — no @media at all! Resize the window ↔ */</span></pre>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════
+       METHOD 4 — auto-fill (bonus: keeps ghost tracks)
+  ════════════════════════════════════════════════ -->
+  <div class="row">
+    <div class="col-12">
+
+      <div class="section-label">
+        <span class="badge-method badge-grid">Method 4</span>
+        <h2>auto-fill — same but cards don't stretch</h2>
+      </div>
+      <p class="section-description">
+        <code>auto-fill</code> works identically to <code>auto-fit</code> <em>when all tracks are occupied</em>.
+        The difference appears when cards wrap: <code>auto-fill</code> keeps invisible ghost columns,
+        so the last row cards keep their natural <code>minmax</code> width instead of stretching.
+        Use this when you don't want the last row to look different.
+      </p>
+
+      <div class="grid-auto-fill">
+        <div class="card-custom">
+          <div class="card-icon icon-a">🚀</div>
+          <h3>Deployment</h3>
+          <p>Push to production with a single command. Zero-downtime rolling updates.</p>
+          <span class="card-tag">devops</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-b">🔐</div>
+          <h3>Auth & Security</h3>
+          <p>Role-based access control, MFA enforcement, and automatic session expiry. All your security concerns covered out of the box, no extra config needed.</p>
+          <span class="card-tag">security</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-c">📊</div>
+          <h3>Analytics</h3>
+          <p>Real-time dashboards with retention funnels, cohort analysis, and custom KPIs. Supports BigQuery and Redshift as export targets.</p>
+          <span class="card-tag">data</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-d">⚡</div>
+          <h3>Edge Cache</h3>
+          <p>Sub-10ms global response times.</p>
+          <span class="card-tag">cdn</span>
+        </div>
+        <div class="card-custom">
+          <div class="card-icon icon-e">🤖</div>
+          <h3>AI Copilot</h3>
+          <p>Inline suggestions powered by a fine-tuned model trained on your codebase. Works with VS Code and JetBrains IDEs. Supports context windows up to 128k tokens.</p>
+          <span class="card-tag">ai</span>
+        </div>
+      </div>
+
+      <div class="code-block">
+        <pre><span class="cmt">/* ── auto-fill vs auto-fit visual difference ── */</span>
+
+<span class="cmt">/* When ALL 5 cards fit on one row → identical ✓ */</span>
+<span class="sel">.grid-auto-fill</span> {
+  <span class="prop">display</span>: <span class="val">grid</span>;
+  <span class="prop">grid-template-columns</span>: <span class="val">repeat(auto-fill, minmax(180px, 1fr))</span>;
+  <span class="prop">gap</span>: <span class="val">16px</span>;
+}
+
+<span class="cmt">/* When cards WRAP (narrow screen, or more cards): 
+   
+   auto-fit  → empty tracks collapse
+               last row cards STRETCH to full width ←
+   
+   auto-fill → empty ghost tracks remain
+               last row cards STAY at minmax min-size ← */</span>
+
+<span class="cmt">/* Quick rule:
+   cards should fill row  → use auto-fit
+   cards should stay same → use auto-fill */</span></pre>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Comparison table ──────────────────────── -->
+  <div class="row">
+    <div class="col-12">
+      <div class="section-label" style="margin-top: 8px;">
+        <h2>Side-by-side comparison</h2>
+      </div>
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>Criterion</th>
+            <th>Flexbox</th>
+            <th>CSS Grid</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dimension</td>
+            <td>1D — controls one axis at a time (row OR column)</td>
+            <td class="good">2D — controls rows AND columns simultaneously</td>
+          </tr>
+          <tr>
+            <td>Equal widths</td>
+            <td class="neutral">✓ with <code>flex: 1 1 calc(20% - gap)</code> — a little math needed</td>
+            <td class="good">✓ trivially with <code>repeat(5, 1fr)</code></td>
+          </tr>
+          <tr>
+            <td>Equal heights per row</td>
+            <td class="good">✓ auto-stretch in same row</td>
+            <td class="good">✓ auto-stretch across all rows</td>
+          </tr>
+          <tr>
+            <td>Gap consistency</td>
+            <td class="neutral">✓ <code>gap</code> works, but calc() needed for width</td>
+            <td class="good">✓ gap handled entirely by grid — no math</td>
+          </tr>
+          <tr>
+            <td>Responsive control</td>
+            <td>Relies on <code>min-width</code> + <code>flex-wrap</code> wrapping</td>
+            <td class="good">Change one property: <code>grid-template-columns</code></td>
+          </tr>
+          <tr>
+            <td>Item reordering / spanning</td>
+            <td class="bad">Hard — items flow linearly</td>
+            <td class="good">Easy — use <code>grid-column: span 2</code> etc.</td>
+          </tr>
+          <tr>
+            <td>Browser support</td>
+            <td>Excellent (IE11+)</td>
+            <td>Excellent (all modern browsers; IE11 needs prefix)</td>
+          </tr>
+          <tr>
+            <td>Best for</td>
+            <td>Navbars, toolbars, single-axis layouts, centering</td>
+            <td class="good">Card grids, dashboards, page sections, 2D layouts</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Verdict ────────────────────────────────── -->
+  <div class="row">
+    <div class="col-12">
+      <div class="verdict">
+        <h3>🏆 Verdict — <code>auto-fit + minmax</code> is the ultimate one-liner</h3>
+        <p>
+          <strong>One CSS rule replaces all your media queries for card grids:</strong><br><br>
+          <code style="color:#e8eaf0; background:#10121a; padding:6px 12px; border-radius:6px; display:inline-block; margin:6px 0 14px;">
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          </code><br>
+          The browser figures out column count automatically. Cards are at least <strong>180px</strong> wide,
+          share space equally via <strong>1fr</strong>, and wrap naturally when the container gets narrow —
+          no <code>@media</code> needed at all.<br><br>
+          Use <strong>auto-fill</strong> instead if you want wrapped cards to stay at their natural minimum width
+          rather than stretching to fill the last row.
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+</body>
+</html>
