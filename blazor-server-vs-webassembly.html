@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blazor Server vs WebAssembly — Deep Dive</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Fraunces:ital,wght@0,300;0,700;0,900;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --surface: #111318;
+    --surface2: #181c24;
+    --border: #222733;
+    --server: #3b82f6;
+    --server-dim: #1d3a6b;
+    --wasm: #f59e0b;
+    --wasm-dim: #6b4a0d;
+    --accent: #10b981;
+    --text: #e2e8f0;
+    --muted: #6b7280;
+    --code-bg: #0d1117;
+    --danger: #ef4444;
+    --purple: #a78bfa;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* === HERO === */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    padding: 80px 40px 60px;
+    border-bottom: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(59,130,246,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59,130,246,0.05) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: radial-gradient(ellipse 80% 80% at 50% 50%, black 30%, transparent 100%);
+  }
+
+  .hero-glow {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 30% 50%, rgba(59,130,246,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at 70% 50%, rgba(245,158,11,0.10) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .hero-label {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--accent);
+    border: 1px solid rgba(16,185,129,0.3);
+    padding: 4px 14px;
+    border-radius: 20px;
+    margin-bottom: 28px;
+    position: relative;
+  }
+
+  .hero h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2.4rem, 6vw, 4.2rem);
+    font-weight: 900;
+    line-height: 1.05;
+    position: relative;
+    margin-bottom: 20px;
+  }
+
+  .hero h1 .server-word { color: var(--server); }
+  .hero h1 .wasm-word { color: var(--wasm); }
+
+  .hero-subtitle {
+    color: var(--muted);
+    font-size: 16px;
+    max-width: 600px;
+    margin: 0 auto 40px;
+    position: relative;
+    font-weight: 300;
+  }
+
+  .hero-badges {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    position: relative;
+  }
+
+  .badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 5px 12px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+  .badge-blue { color: var(--server); border-color: var(--server-dim); background: rgba(59,130,246,0.07); }
+  .badge-amber { color: var(--wasm); border-color: var(--wasm-dim); background: rgba(245,158,11,0.07); }
+  .badge-green { color: var(--accent); border-color: rgba(16,185,129,0.3); background: rgba(16,185,129,0.07); }
+
+  /* === LAYOUT === */
+  .container {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  section {
+    padding: 60px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 32px;
+    line-height: 1.2;
+  }
+
+  h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  p { color: #c9d1e0; margin-bottom: 12px; }
+
+  /* === VERSUS SPLIT === */
+  .vs-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 40px;
+  }
+
+  .vs-panel {
+    padding: 32px;
+  }
+
+  .vs-panel.server { background: rgba(59,130,246,0.04); border-right: 1px solid var(--border); }
+  .vs-panel.wasm { background: rgba(245,158,11,0.04); }
+
+  .vs-divider {
+    width: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+
+  .vs-divider span {
+    font-family: 'Fraunces', serif;
+    font-size: 1.1rem;
+    font-weight: 900;
+    color: var(--muted);
+    writing-mode: vertical-rl;
+    letter-spacing: 4px;
+  }
+
+  .panel-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .panel-title .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+  .dot-blue { background: var(--server); }
+  .dot-amber { background: var(--wasm); }
+
+  .kv-list { list-style: none; }
+  .kv-list li {
+    display: flex;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 13.5px;
+    color: #b0bcd4;
+  }
+  .kv-list li:last-child { border-bottom: none; }
+  .kv-list li strong { color: var(--text); min-width: 110px; font-weight: 500; }
+
+  /* === ARCHITECTURE FLOW === */
+  .arch-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arch-box::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+  }
+  .arch-box.server-box::before { background: var(--server); }
+  .arch-box.wasm-box::before { background: var(--wasm); }
+
+  .arch-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .arch-title.blue { color: var(--server); }
+  .arch-title.amber { color: var(--wasm); }
+
+  .flow-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .flow-step {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    position: relative;
+    padding-bottom: 16px;
+  }
+
+  .flow-step:last-child { padding-bottom: 0; }
+
+  .flow-step:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    bottom: 0;
+    width: 1px;
+    background: var(--border);
+  }
+
+  .step-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+  .step-num.blue { background: var(--server-dim); color: var(--server); border: 1px solid var(--server); }
+  .step-num.amber { background: var(--wasm-dim); color: var(--wasm); border: 1px solid var(--wasm); }
+
+  .step-content { padding-top: 5px; }
+  .step-content strong { display: block; color: var(--text); margin-bottom: 2px; font-size: 14px; }
+  .step-content span { color: var(--muted); font-size: 13px; }
+
+  /* === NETWORK TAB VISUAL === */
+  .devtools {
+    background: #1a1b26;
+    border: 1px solid #2a2d3a;
+    border-radius: 10px;
+    overflow: hidden;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    margin-bottom: 20px;
+  }
+
+  .devtools-bar {
+    background: #13141f;
+    border-bottom: 1px solid #2a2d3a;
+    padding: 8px 16px;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+  }
+
+  .devtools-tab {
+    color: #5a5f7a;
+    padding: 4px 0;
+    cursor: default;
+    border-bottom: 2px solid transparent;
+    font-size: 11px;
+  }
+  .devtools-tab.active { color: #7aa2f7; border-color: #7aa2f7; }
+
+  .devtools-filter {
+    display: flex;
+    gap: 8px;
+    padding: 6px 16px;
+    background: #13141f;
+    border-bottom: 1px solid #2a2d3a;
+  }
+
+  .filter-btn {
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid #2a2d3a;
+    color: #5a5f7a;
+    font-size: 10px;
+    cursor: default;
+  }
+  .filter-btn.active { background: rgba(122,162,247,0.15); color: #7aa2f7; border-color: rgba(122,162,247,0.4); }
+
+  .devtools-header {
+    display: grid;
+    padding: 4px 12px;
+    background: #13141f;
+    border-bottom: 1px solid #2a2d3a;
+    color: #4a4f6a;
+    font-size: 10px;
+  }
+  .devtools-header.ws-header { grid-template-columns: 2fr 1fr 1fr 80px; }
+  .devtools-header.net-header { grid-template-columns: 2fr 60px 80px 80px 80px; }
+
+  .net-row {
+    display: grid;
+    padding: 5px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    align-items: center;
+    font-size: 11px;
+    color: #8899b5;
+  }
+  .net-row:hover { background: rgba(255,255,255,0.03); }
+  .net-row.ws-row { grid-template-columns: 2fr 1fr 1fr 80px; }
+  .net-row.http-row { grid-template-columns: 2fr 60px 80px 80px 80px; }
+
+  .method { font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 700; }
+  .method-get { background: rgba(16,185,129,0.15); color: #10b981; }
+  .method-post { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .method-ws { background: rgba(167,139,250,0.15); color: #a78bfa; }
+
+  .status { font-size: 10px; padding: 1px 5px; border-radius: 3px; }
+  .status-101 { background: rgba(167,139,250,0.15); color: #a78bfa; }
+  .status-200 { background: rgba(16,185,129,0.15); color: #10b981; }
+
+  .ws-msg-preview {
+    padding: 12px 16px;
+    background: #0f1018;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .ws-msg {
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+    align-items: center;
+  }
+  .ws-msg .dir { width: 12px; text-align: center; }
+  .ws-msg .dir.send { color: #7aa2f7; }
+  .ws-msg .dir.recv { color: #f7768e; }
+  .ws-msg .time { color: #4a4f6a; width: 80px; }
+  .ws-msg .data { color: #9aa5ce; }
+  .ws-msg .bytes { color: #4a4f6a; margin-left: auto; }
+  .ws-msg .binary { color: #565f89; font-style: italic; }
+
+  /* === COMPARISON TABLE === */
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+
+  .comp-table thead tr {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .comp-table th {
+    padding: 14px 20px;
+    text-align: left;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  .comp-table th.col-server { color: var(--server); }
+  .comp-table th.col-wasm { color: var(--wasm); }
+
+  .comp-table tbody tr {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    transition: background 0.15s;
+  }
+  .comp-table tbody tr:last-child { border-bottom: none; }
+  .comp-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+  .comp-table td {
+    padding: 14px 20px;
+    font-size: 13.5px;
+    color: #b0bcd4;
+    vertical-align: top;
+  }
+
+  .comp-table td:first-child {
+    color: var(--text);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .win { color: var(--accent); font-weight: 500; }
+  .lose { color: #ef4444; }
+  .neutral { color: var(--muted); }
+
+  .tag { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 3px; margin-top: 2px; }
+  .tag-good { background: rgba(16,185,129,0.12); color: var(--accent); }
+  .tag-bad { background: rgba(239,68,68,0.12); color: #ef4444; }
+  .tag-mid { background: rgba(245,158,11,0.12); color: var(--wasm); }
+
+  /* === USE CASE CARDS === */
+  .use-cases {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .uc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 22px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .uc-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    opacity: 0.03;
+    pointer-events: none;
+  }
+
+  .uc-card.server-card { border-top: 2px solid var(--server); }
+  .uc-card.wasm-card { border-top: 2px solid var(--wasm); }
+
+  .uc-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  .uc-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .icon-server { background: var(--server-dim); }
+  .icon-wasm { background: var(--wasm-dim); }
+
+  .uc-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .uc-title.blue { color: var(--server); }
+  .uc-title.amber { color: var(--wasm); }
+
+  .uc-list { list-style: none; }
+  .uc-list li {
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 13px;
+    color: #b0bcd4;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .uc-list li:last-child { border-bottom: none; }
+  .uc-list li::before {
+    content: '→';
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .server-card .uc-list li::before { color: var(--server); }
+  .wasm-card .uc-list li::before { color: var(--wasm); }
+
+  /* === CODE BLOCK === */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+
+  .code-header {
+    background: #161b22;
+    border-bottom: 1px solid #21262d;
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .code-filename {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #8b949e;
+  }
+
+  .code-lang {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(56,58,66,0.5);
+    color: #8b949e;
+  }
+
+  pre {
+    padding: 18px 20px;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.7;
+    color: #c9d1d9;
+  }
+
+  .kw { color: #ff7b72; }       /* keywords */
+  .type { color: #79c0ff; }     /* types */
+  .str { color: #a5d6ff; }      /* strings */
+  .comment { color: #8b949e; }  /* comments */
+  .attr { color: #d2a8ff; }     /* attributes */
+  .func { color: #d2a8ff; }     /* function names */
+  .var { color: #ffa657; }      /* variables */
+  .punct { color: #8b949e; }    /* punctuation */
+
+  /* === RENDER MODES TABLE === */
+  .render-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .render-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+  }
+
+  .render-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--purple);
+    margin-bottom: 6px;
+    display: block;
+  }
+
+  .render-desc {
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* === DECISION TREE === */
+  .decision-flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    margin-bottom: 32px;
+  }
+
+  .d-node {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    background: var(--surface2);
+    margin: 0 auto;
+    text-align: center;
+    font-size: 13.5px;
+    color: var(--text);
+    position: relative;
+    max-width: 420px;
+  }
+
+  .d-node.question { border-color: var(--purple); color: var(--purple); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .d-node.server-result { border-color: var(--server); background: rgba(59,130,246,0.05); color: #93c5fd; }
+  .d-node.wasm-result { border-color: var(--wasm); background: rgba(245,158,11,0.05); color: #fcd34d; }
+  .d-node.auto-result { border-color: var(--accent); background: rgba(16,185,129,0.05); color: #6ee7b7; }
+
+  .d-arrow {
+    text-align: center;
+    color: var(--border);
+    padding: 6px 0;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .d-arrow span { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); }
+
+  .d-fork { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 0; }
+  .d-fork-item { text-align: center; }
+  .d-fork-label { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); margin-bottom: 4px; }
+
+  /* === TIPS SECTION === */
+  .tips-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .tip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid;
+    border-radius: 0 8px 8px 0;
+    padding: 16px 20px;
+    font-size: 13.5px;
+    color: #b0bcd4;
+  }
+
+  .tip strong { display: block; margin-bottom: 4px; font-size: 13px; }
+  .tip.blue { border-left-color: var(--server); }
+  .tip.blue strong { color: var(--server); }
+  .tip.amber { border-left-color: var(--wasm); }
+  .tip.amber strong { color: var(--wasm); }
+  .tip.green { border-left-color: var(--accent); }
+  .tip.green strong { color: var(--accent); }
+  .tip.red { border-left-color: var(--danger); }
+  .tip.red strong { color: var(--danger); }
+
+  /* === FOOTER === */
+  footer {
+    text-align: center;
+    padding: 40px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+
+  /* === SCROLLBAR === */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* === ANIMATIONS === */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero > * { animation: fadeUp 0.6s ease both; }
+  .hero .hero-label { animation-delay: 0.1s; }
+  .hero h1 { animation-delay: 0.2s; }
+  .hero .hero-subtitle { animation-delay: 0.3s; }
+  .hero .hero-badges { animation-delay: 0.4s; }
+
+  @media (max-width: 768px) {
+    .vs-grid { grid-template-columns: 1fr; }
+    .vs-divider { display: none; }
+    .vs-panel.server { border-right: none; border-bottom: 1px solid var(--border); }
+    .use-cases { grid-template-columns: 1fr; }
+    .render-grid { grid-template-columns: 1fr 1fr; }
+    .tips-grid { grid-template-columns: 1fr; }
+    .hero { padding: 50px 20px 40px; }
+    .container { padding: 0 20px; }
+    .d-fork { grid-template-columns: 1fr; }
+  }
+
+  .highlight-inline {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: #e2e8f0;
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-label">📺 Based on YouTube Video Deep Dive</div>
+  <h1>Blazor <span class="server-word">Server</span><br>vs <span class="wasm-word">WebAssembly</span></h1>
+  <p class="hero-subtitle">A complete, in-depth technical reference — architecture, network behaviour, DevTools visuals, use cases, and decision guide.</p>
+  <div class="hero-badges">
+    <span class="badge badge-blue">🔵 Blazor Server → SignalR / WebSocket</span>
+    <span class="badge badge-amber">🟡 Blazor WASM → HTTP API calls</span>
+    <span class="badge badge-green">⚡ .NET 8+ Render Modes</span>
+  </div>
+</div>
+
+<div class="container">
+
+<!-- SECTION 1: WHAT IS EACH -->
+<section>
+  <div class="section-label">01 — Core Concept</div>
+  <h2>What are They, Exactly?</h2>
+
+  <div class="vs-grid">
+    <div class="vs-panel server">
+      <div class="panel-title"><span class="dot dot-blue"></span>BLAZOR SERVER</div>
+      <ul class="kv-list">
+        <li><strong>Runs where?</strong> Entirely on the ASP.NET Core server</li>
+        <li><strong>Client gets?</strong> Minimal HTML + <code>blazor.server.js</code> only</li>
+        <li><strong>Updates sent via?</strong> SignalR WebSocket connection</li>
+        <li><strong>DB access?</strong> Direct — no API layer needed</li>
+        <li><strong>Download size?</strong> Very small initial payload (~50KB JS)</li>
+        <li><strong>C# on client?</strong> Never — all runs on server</li>
+        <li><strong>Needs a server?</strong> Yes — always, always</li>
+      </ul>
+    </div>
+    <div class="vs-divider"><span>VS</span></div>
+    <div class="vs-panel wasm">
+      <div class="panel-title"><span class="dot dot-amber"></span>BLAZOR WEBASSEMBLY</div>
+      <ul class="kv-list">
+        <li><strong>Runs where?</strong> Entirely in the browser (WebAssembly runtime)</li>
+        <li><strong>Client gets?</strong> Full .NET runtime + all DLLs downloaded</li>
+        <li><strong>Updates sent via?</strong> HTTP calls to a Web API</li>
+        <li><strong>DB access?</strong> Never direct — must go through API</li>
+        <li><strong>Download size?</strong> Large initial payload (5–20MB+)</li>
+        <li><strong>C# on client?</strong> Yes — compiled to WASM bytecode</li>
+        <li><strong>Needs a server?</strong> Only for data/APIs — UI works offline</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 2: ARCHITECTURE FLOWS -->
+<section>
+  <div class="section-label">02 — How It Works Internally</div>
+  <h2>Architecture & Request Flow</h2>
+
+  <div class="arch-box server-box">
+    <div class="arch-title blue">🔵 Blazor Server — Step-by-Step Flow</div>
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="step-num blue">1</div>
+        <div class="step-content">
+          <strong>Browser makes initial HTTP request</strong>
+          <span>Server responds with minimal HTML + <span class="highlight-inline">blazor.server.js</span> (tiny JS file)</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num blue">2</div>
+        <div class="step-content">
+          <strong>SignalR connection is established (WebSocket)</strong>
+          <span><span class="highlight-inline">blazor.server.js</span> initialises and opens a persistent WebSocket tunnel to <span class="highlight-inline">/_blazor?id=xxx</span></span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num blue">3</div>
+        <div class="step-content">
+          <strong>Server builds a Render Tree in memory</strong>
+          <span>A full virtual DOM representation of the page is held server-side per user ("circuit")</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num blue">4</div>
+        <div class="step-content">
+          <strong>User clicks a button / interacts</strong>
+          <span>The event is sent from browser → server as a tiny binary message over the WebSocket</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num blue">5</div>
+        <div class="step-content">
+          <strong>Server processes event, updates Render Tree</strong>
+          <span>It compares Old Tree vs New Tree and computes only the DOM diff (delta changes)</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num blue">6</div>
+        <div class="step-content">
+          <strong>Server sends binary diff back to browser</strong>
+          <span>Only the changed parts of the DOM are sent — not a full page reload. Browser applies the patch.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arch-box wasm-box">
+    <div class="arch-title amber">🟡 Blazor WebAssembly — Step-by-Step Flow</div>
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="step-num amber">1</div>
+        <div class="step-content">
+          <strong>Browser makes initial HTTP request</strong>
+          <span>Server serves <span class="highlight-inline">index.html</span>, <span class="highlight-inline">blazor.webassembly.js</span>, and triggers download of the app</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num amber">2</div>
+        <div class="step-content">
+          <strong>Browser downloads the full .NET runtime + DLLs</strong>
+          <span><span class="highlight-inline">dotnet.wasm</span> (compiled .NET runtime), all app assemblies (.dll files), fonts, CSS — often 5–20MB total</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num amber">3</div>
+        <div class="step-content">
+          <strong>.NET runtime boots inside WebAssembly sandbox</strong>
+          <span>C# code is now running inside your browser tab — all rendering & logic is local</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num amber">4</div>
+        <div class="step-content">
+          <strong>User clicks / interacts — NO server call for UI</strong>
+          <span>Counter increments, dropdowns open, tabs switch — all instant, no network needed for UI logic</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num amber">5</div>
+        <div class="step-content">
+          <strong>When data is needed → HTTP call to Web API</strong>
+          <span>Uses <span class="highlight-inline">HttpClient</span> to call <span class="highlight-inline">/api/products</span> etc. You'll see these as GET/POST requests in the network tab</span>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="step-num amber">6</div>
+        <div class="step-content">
+          <strong>API returns JSON → browser renders update</strong>
+          <span>The WASM runtime processes the JSON and re-renders the relevant component client-side</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 3: NETWORK TAB VISUAL -->
+<section>
+  <div class="section-label">03 — What You See in Browser DevTools</div>
+  <h2>Network Tab — Live Comparison</h2>
+  <p>This is the <strong>exact difference you saw in the video</strong>. Open DevTools (F12) → Network tab and this is what you observe:</p>
+
+  <h3 style="color: var(--server); margin-top: 28px; margin-bottom: 12px;">🔵 Blazor Server — Network Tab</h3>
+  <p style="color: var(--muted); margin-bottom: 14px; font-size: 13px;">Filter by "WS" (WebSocket). You'll see a single persistent connection that carries ALL traffic. Every button click adds binary messages — no new HTTP requests appear.</p>
+
+  <div class="devtools">
+    <div class="devtools-bar">
+      <span class="devtools-tab">Elements</span>
+      <span class="devtools-tab active">Network</span>
+      <span class="devtools-tab">Console</span>
+      <span class="devtools-tab">Sources</span>
+    </div>
+    <div class="devtools-filter">
+      <span class="filter-btn">All</span>
+      <span class="filter-btn">Fetch/XHR</span>
+      <span class="filter-btn active">WS</span>
+      <span class="filter-btn">Doc</span>
+      <span class="filter-btn">JS</span>
+    </div>
+    <div class="devtools-header ws-header">
+      <span>Name</span>
+      <span>Status</span>
+      <span>Protocol</span>
+      <span>Size</span>
+    </div>
+    <div class="net-row ws-row">
+      <span>/_blazor?id=aK7xP2mR...</span>
+      <span class="status status-101">101</span>
+      <span style="color:#a78bfa">websocket</span>
+      <span>persistent</span>
+    </div>
+    <div class="ws-msg-preview">
+      <div style="font-size:10px; color:#4a4f6a; margin-bottom:6px; font-family:'JetBrains Mono',monospace;">▶ Messages (click on WS connection to inspect)</div>
+      <div class="ws-msg">
+        <span class="dir send">↑</span>
+        <span class="time">12:44:01.204</span>
+        <span class="data binary">Binary Frame — User clicked "Increment" button</span>
+        <span class="bytes">47 B</span>
+      </div>
+      <div class="ws-msg">
+        <span class="dir recv">↓</span>
+        <span class="time">12:44:01.218</span>
+        <span class="data binary">Binary Frame — DOM diff patch (count changed 0→1)</span>
+        <span class="bytes">182 B</span>
+      </div>
+      <div class="ws-msg">
+        <span class="dir send">↑</span>
+        <span class="time">12:44:02.891</span>
+        <span class="data binary">Binary Frame — User clicked "Increment" button</span>
+        <span class="bytes">47 B</span>
+      </div>
+      <div class="ws-msg">
+        <span class="dir recv">↓</span>
+        <span class="time">12:44:02.905</span>
+        <span class="data binary">Binary Frame — DOM diff patch (count changed 1→2)</span>
+        <span class="bytes">182 B</span>
+      </div>
+      <div class="ws-msg">
+        <span class="dir send">↑</span>
+        <span class="time">12:44:04.100</span>
+        <span class="data binary">Binary Frame — Navigate to /fetchdata</span>
+        <span class="bytes">38 B</span>
+      </div>
+      <div class="ws-msg">
+        <span class="dir recv">↓</span>
+        <span class="time">12:44:04.143</span>
+        <span class="data binary">Binary Frame — Full page diff for FetchData component</span>
+        <span class="bytes">2.1 KB</span>
+      </div>
+    </div>
+  </div>
+  <p style="color: var(--muted); font-size: 12.5px; margin-bottom: 28px;">⚠️ Notice: No new HTTP GET/POST requests appear in "All" tab when clicking around. Everything flows through the single WebSocket tunnel. Link clicks don't generate new network rows.</p>
+
+  <h3 style="color: var(--wasm); margin-top: 28px; margin-bottom: 12px;">🟡 Blazor WebAssembly — Network Tab</h3>
+  <p style="color: var(--muted); margin-bottom: 14px; font-size: 13px;">You'll see a massive initial load of DLLs + dotnet.wasm. Then for data fetches you'll see real HTTP GET/POST requests to your API endpoints.</p>
+
+  <div class="devtools">
+    <div class="devtools-bar">
+      <span class="devtools-tab">Elements</span>
+      <span class="devtools-tab active">Network</span>
+      <span class="devtools-tab">Console</span>
+    </div>
+    <div class="devtools-filter">
+      <span class="filter-btn active">All</span>
+      <span class="filter-btn">Fetch/XHR</span>
+      <span class="filter-btn">WS</span>
+      <span class="filter-btn">Wasm</span>
+    </div>
+    <div class="devtools-header net-header">
+      <span>Name</span>
+      <span>Method</span>
+      <span>Status</span>
+      <span>Type</span>
+      <span>Size</span>
+    </div>
+    <div class="net-row http-row">
+      <span>dotnet.wasm</span>
+      <span><span class="method method-get">GET</span></span>
+      <span class="status status-200">200</span>
+      <span style="color:#a78bfa">wasm</span>
+      <span>7.4 MB</span>
+    </div>
+    <div class="net-row http-row">
+      <span>MyApp.dll</span>
+      <span><span class="method method-get">GET</span></span>
+      <span class="status status-200">200</span>
+      <span style="color:#5a5f7a">fetch</span>
+      <span>312 KB</span>
+    </div>
+    <div class="net-row http-row">
+      <span>Microsoft.AspNetCore.Components.dll</span>
+      <span><span class="method method-get">GET</span></span>
+      <span class="status status-200">200</span>
+      <span style="color:#5a5f7a">fetch</span>
+      <span>891 KB</span>
+    </div>
+    <div class="net-row http-row" style="color:#4a4f6a; font-style:italic;">
+      <span>...203 more requests (DLLs, fonts, css)</span>
+      <span></span>
+      <span></span>
+      <span></span>
+      <span>~18 MB total</span>
+    </div>
+    <div style="padding: 6px 12px; background: #13141f; border-top: 1px solid #2a2d3a; font-size: 10px; color: #4a4f6a; font-family:'JetBrains Mono',monospace;">
+      ── After initial load, when user clicks "Load Products" ──
+    </div>
+    <div class="net-row http-row">
+      <span>/api/products?category=all</span>
+      <span><span class="method method-get">GET</span></span>
+      <span class="status status-200">200</span>
+      <span style="color:#5a5f7a">fetch</span>
+      <span>14.2 KB</span>
+    </div>
+    <div class="net-row http-row">
+      <span>/api/cart/add</span>
+      <span><span class="method method-post">POST</span></span>
+      <span class="status status-200">200</span>
+      <span style="color:#5a5f7a">fetch</span>
+      <span>0.8 KB</span>
+    </div>
+    <div class="net-row http-row">
+      <span>/api/user/profile</span>
+      <span><span class="method method-get">GET</span></span>
+      <span class="status status-200">200</span>
+      <span style="color:#5a5f7a">fetch</span>
+      <span>2.1 KB</span>
+    </div>
+  </div>
+  <p style="color: var(--muted); font-size: 12.5px;">⚠️ UI interactions (counters, tab switches, local state changes) generate <em>zero</em> network requests after initial load — but any server data fetch shows up as normal HTTP calls. No WebSocket for the UI itself.</p>
+</section>
+
+<!-- SECTION 4: CODE COMPARISON -->
+<section>
+  <div class="section-label">04 — Code Differences</div>
+  <h2>How Code Looks Different</h2>
+  <p>Both use identical Razor component syntax. The difference is in <strong>how data is accessed</strong>.</p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--server); margin-bottom:8px; letter-spacing:1px;">🔵 BLAZOR SERVER — Direct DB Access</div>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">FetchData.razor</span>
+          <span class="code-lang">razor</span>
+        </div>
+        <pre><span class="comment">// NO API needed!</span>
+<span class="attr">@inject</span> <span class="type">MyDbContext</span> db
+
+<span class="kw">&lt;h3&gt;</span>Products<span class="kw">&lt;/h3&gt;</span>
+
+<span class="attr">@code</span> {
+  <span class="type">List</span><span class="punct">&lt;</span><span class="type">Product</span><span class="punct">&gt;</span> <span class="var">products</span>;
+
+  <span class="kw">protected override async</span>
+  <span class="type">Task</span> <span class="func">OnInitializedAsync</span>() {
+    <span class="comment">// Direct EF Core query!</span>
+    <span class="var">products</span> = <span class="kw">await</span> <span class="var">db</span>
+      .<span class="var">Products</span>
+      .<span class="func">ToListAsync</span>();
+  }
+}</pre>
+      </div>
+    </div>
+    <div>
+      <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--wasm); margin-bottom:8px; letter-spacing:1px;">🟡 BLAZOR WASM — Must Use HTTP API</div>
+      <div class="code-block">
+        <div class="code-header">
+          <span class="code-filename">FetchData.razor</span>
+          <span class="code-lang">razor</span>
+        </div>
+        <pre><span class="comment">// Must go through API</span>
+<span class="attr">@inject</span> <span class="type">HttpClient</span> Http
+
+<span class="kw">&lt;h3&gt;</span>Products<span class="kw">&lt;/h3&gt;</span>
+
+<span class="attr">@code</span> {
+  <span class="type">List</span><span class="punct">&lt;</span><span class="type">Product</span><span class="punct">&gt;</span> <span class="var">products</span>;
+
+  <span class="kw">protected override async</span>
+  <span class="type">Task</span> <span class="func">OnInitializedAsync</span>() {
+    <span class="comment">// HTTP call to your API</span>
+    <span class="var">products</span> = <span class="kw">await</span> Http
+      .<span class="func">GetFromJsonAsync</span><span class="punct">&lt;</span>
+      <span class="type">List</span><span class="punct">&lt;</span><span class="type">Product</span><span class="punct">&gt;&gt;</span>(
+        <span class="str">"/api/products"</span>);
+  }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--purple); margin-bottom:8px; letter-spacing:1px;">⚡ .NET 8+ — Per-Component Render Mode</div>
+    <div class="code-block">
+      <div class="code-header">
+        <span class="code-filename">MyComponent.razor</span>
+        <span class="code-lang">razor</span>
+      </div>
+      <pre><span class="comment">// Mix modes in the same app!</span>
+<span class="attr">@page</span> <span class="str">"/admin"</span>
+<span class="attr">@rendermode</span> <span class="type">InteractiveServer</span>     <span class="comment">// secure, server-side</span>
+
+<span class="attr">@page</span> <span class="str">"/catalog"</span>
+<span class="attr">@rendermode</span> <span class="type">InteractiveWebAssembly</span> <span class="comment">// fast, client-side</span>
+
+<span class="attr">@page</span> <span class="str">"/about"</span>
+<span class="attr">@rendermode</span> <span class="type">Static</span>                <span class="comment">// no interactivity needed</span>
+
+<span class="attr">@page</span> <span class="str">"/dashboard"</span>
+<span class="attr">@rendermode</span> <span class="type">InteractiveAuto</span>        <span class="comment">// Server first, then WASM</span></pre>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 5: FULL COMPARISON TABLE -->
+<section>
+  <div class="section-label">05 — Feature Comparison</div>
+  <h2>Full In-Depth Comparison</h2>
+
+  <table class="comp-table">
+    <thead>
+      <tr>
+        <th style="width:180px;">Factor</th>
+        <th class="col-server">🔵 Blazor Server</th>
+        <th class="col-wasm">🟡 Blazor WebAssembly</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Initial load speed</td>
+        <td><span class="win">✓ Very fast</span> — only small JS file downloaded</td>
+        <td><span class="lose">✗ Slow first load</span> — 5–20MB download (dotnet.wasm + DLLs)</td>
+      </tr>
+      <tr>
+        <td>Subsequent interactions</td>
+        <td><span class="lose">✗ Network round-trip</span> per interaction via WebSocket</td>
+        <td><span class="win">✓ Instant</span> — runs locally, no server call for UI</td>
+      </tr>
+      <tr>
+        <td>Offline support</td>
+        <td><span class="lose">✗ None</span> — if WebSocket drops, app freezes</td>
+        <td><span class="win">✓ Full offline possible</span> (PWA) after first load</td>
+      </tr>
+      <tr>
+        <td>Database access</td>
+        <td><span class="win">✓ Direct</span> — inject DbContext, use EF Core directly</td>
+        <td><span class="lose">✗ Must use API</span> — HttpClient to REST/gRPC API</td>
+      </tr>
+      <tr>
+        <td>Project structure</td>
+        <td><span class="win">✓ Simple</span> — single project</td>
+        <td><span class="neutral">Complex</span> — 3 projects: Client, Server, Shared</td>
+      </tr>
+      <tr>
+        <td>Secrets / API keys</td>
+        <td><span class="win">✓ Safe</span> — code never leaves the server</td>
+        <td><span class="lose">✗ Exposed</span> — DLLs can be decompiled by users</td>
+      </tr>
+      <tr>
+        <td>Scalability</td>
+        <td><span class="lose">✗ Challenging</span> — 1 WebSocket (circuit) per user = memory per user</td>
+        <td><span class="win">✓ Easier to scale</span> — stateless API, can use CDN + load balancing</td>
+      </tr>
+      <tr>
+        <td>Latency</td>
+        <td>Depends on <strong>network quality</strong> (round-trip to server)</td>
+        <td>Depends on <strong>device speed</strong> (processing power)</td>
+      </tr>
+      <tr>
+        <td>Browser support</td>
+        <td><span class="win">✓ All browsers</span> including IE11 — only needs JS</td>
+        <td>Modern browsers only — requires WebAssembly support</td>
+      </tr>
+      <tr>
+        <td>Mobile apps / multi-client</td>
+        <td>Poor fit — tied to browser WebSocket</td>
+        <td><span class="win">✓ Perfect</span> — shared API used by mobile, web, etc.</td>
+      </tr>
+      <tr>
+        <td>Debugging</td>
+        <td><span class="win">✓ Easy</span> — standard .NET server debugging</td>
+        <td>Harder — needs special browser debug proxy setup</td>
+      </tr>
+      <tr>
+        <td>Real-time updates</td>
+        <td><span class="win">✓ Built-in</span> — WebSocket already open</td>
+        <td>Requires extra SignalR setup from client to server</td>
+      </tr>
+      <tr>
+        <td>SEO (search crawlers)</td>
+        <td><span class="win">✓ Better</span> — server renders HTML directly</td>
+        <td>Poor by default — needs prerendering workaround</td>
+      </tr>
+      <tr>
+        <td>Hosting requirement</td>
+        <td>Needs ASP.NET Core server — always running</td>
+        <td><span class="win">✓ Static hosting</span> possible (Azure Static, Netlify, CDN)</td>
+      </tr>
+      <tr>
+        <td>Desktop app migration</td>
+        <td><span class="win">✓ Great fit</span> — direct service/DB access like WinForms</td>
+        <td>More refactoring needed</td>
+      </tr>
+      <tr>
+        <td>Streaming rendering</td>
+        <td><span class="win">✓ Supported</span> — show UI shell while data fetches</td>
+        <td>Not applicable — app loads fully first</td>
+      </tr>
+      <tr>
+        <td>Server resource usage</td>
+        <td><span class="lose">Higher</span> — maintains state per connected user</td>
+        <td><span class="win">Lower</span> — server mainly serves static files + API</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- SECTION 6: RENDER MODES -->
+<section>
+  <div class="section-label">06 — .NET 8+ Render Modes</div>
+  <h2>Modern Blazor Render Modes</h2>
+  <p>From .NET 8, Blazor introduced per-component render modes — you're no longer forced to pick one model for the whole app.</p>
+
+  <div class="render-grid">
+    <div class="render-card">
+      <span class="render-name">Static SSR</span>
+      <div style="font-size:11px; color:var(--muted); font-family:'JetBrains Mono',monospace; margin-bottom:8px;">@rendermode Static</div>
+      <div class="render-desc">No interactivity. Pure HTML from server. Great for read-only pages, SEO-critical content. Zero JS overhead.</div>
+    </div>
+    <div class="render-card">
+      <span class="render-name">InteractiveServer</span>
+      <div style="font-size:11px; color:var(--server); font-family:'JetBrains Mono',monospace; margin-bottom:8px;">@rendermode InteractiveServer</div>
+      <div class="render-desc">Component runs on server via SignalR. Fast startup, direct DB access. Best for admin panels, forms.</div>
+    </div>
+    <div class="render-card">
+      <span class="render-name">InteractiveWebAssembly</span>
+      <div style="font-size:11px; color:var(--wasm); font-family:'JetBrains Mono',monospace; margin-bottom:8px;">@rendermode InteractiveWebAssembly</div>
+      <div class="render-desc">Component downloads and runs in browser. Offline capable after load. Best for interactive, data-heavy UI.</div>
+    </div>
+    <div class="render-card">
+      <span class="render-name">InteractiveAuto</span>
+      <div style="font-size:11px; color:var(--accent); font-family:'JetBrains Mono',monospace; margin-bottom:8px;">@rendermode InteractiveAuto</div>
+      <div class="render-desc">Best of both: starts as Server for fast initial load, then transparently switches to WASM once downloaded. Premium UX.</div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 7: USE CASES -->
+<section>
+  <div class="section-label">07 — When to Use Which</div>
+  <h2>Real-World Use Cases</h2>
+
+  <div class="use-cases">
+    <div class="uc-card server-card">
+      <div class="uc-header">
+        <div class="uc-icon icon-server">🔵</div>
+        <div class="uc-title blue">USE BLAZOR SERVER WHEN...</div>
+      </div>
+      <ul class="uc-list">
+        <li>Building internal LOB (Line-of-Business) apps for employees on stable corporate networks</li>
+        <li>Migrating a desktop app (WinForms/WPF) to web — direct DB access is familiar</li>
+        <li>Building admin dashboards with sensitive business logic that must stay on server</li>
+        <li>Need real-time multi-user collaboration (chat support, monitoring dashboards)</li>
+        <li>Targeting older browsers or low-powered kiosk devices that can't run WASM</li>
+        <li>Building a quick MVP or prototype where simplicity of a single project matters</li>
+        <li>Financial apps with strict security — code is never sent to the client</li>
+        <li>Apps with heavy EF Core database operations — no API boilerplate needed</li>
+        <li>Need SSR for SEO on a CMS-like content app</li>
+      </ul>
+    </div>
+    <div class="uc-card wasm-card">
+      <div class="uc-header">
+        <div class="uc-icon icon-wasm">🟡</div>
+        <div class="uc-title amber">USE BLAZOR WEBASSEMBLY WHEN...</div>
+      </div>
+      <ul class="uc-list">
+        <li>Building a public-facing SPA where scalability matters (many concurrent users)</li>
+        <li>You plan to support mobile apps later — shared API serves both web and native</li>
+        <li>Need offline / PWA support (field workers, remote areas with spotty connectivity)</li>
+        <li>Building tools/apps that are CPU-intensive on the UI — canvas, games, local processing</li>
+        <li>Want to host on cheap static CDN (Netlify, Azure Static) without a persistent server</li>
+        <li>Already have or are building a REST API — WASM is a natural frontend for it</li>
+        <li>Want multiple frontend clients (React, Flutter, WASM) sharing one API backend</li>
+        <li>Building a developer tool or design tool (Figma-like) where client-side speed matters</li>
+        <li>e-Commerce storefront where browsing speed post-load is critical</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 8: DECISION TREE -->
+<section>
+  <div class="section-label">08 — Decision Guide</div>
+  <h2>Which One Should You Pick?</h2>
+
+  <div class="decision-flow">
+    <div class="d-node question">Is your app internal-only (employees, intranet)?</div>
+    <div class="d-arrow">↓</div>
+    <div class="d-fork">
+      <div class="d-fork-item">
+        <div class="d-fork-label">YES</div>
+        <div class="d-node server-result">🔵 Use Blazor Server<br><small style="font-size:11px; opacity:0.8;">Simpler, faster dev, direct DB access</small></div>
+      </div>
+      <div class="d-fork-item">
+        <div class="d-fork-label">NO — Public app</div>
+        <div class="d-node question" style="max-width:none;">Need mobile app or multiple frontends later?</div>
+      </div>
+    </div>
+    <div class="d-arrow" style="text-align:right; padding-right:22%;">↓</div>
+    <div class="d-fork" style="max-width:55%; margin-left:auto;">
+      <div class="d-fork-item">
+        <div class="d-fork-label">YES</div>
+        <div class="d-node wasm-result">🟡 Use Blazor WASM<br><small style="font-size:11px; opacity:0.8;">Build a shared API, scale out</small></div>
+      </div>
+      <div class="d-fork-item">
+        <div class="d-fork-label">NO</div>
+        <div class="d-node question" style="max-width:none;">Need offline / PWA support?</div>
+      </div>
+    </div>
+    <div class="d-arrow" style="text-align:right; padding-right:12%;">↓</div>
+    <div style="max-width:30%; margin-left:auto;">
+      <div class="d-fork">
+        <div class="d-fork-item">
+          <div class="d-fork-label">YES</div>
+          <div class="d-node wasm-result">🟡 Use WASM</div>
+        </div>
+        <div class="d-fork-item">
+          <div class="d-fork-label">NO</div>
+          <div class="d-node auto-result">⚡ Use InteractiveAuto<br><small style="font-size:11px; opacity:0.8;">Server speed + WASM UX</small></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 9: TIPS & GOTCHAS -->
+<section>
+  <div class="section-label">09 — Minor Details & Gotchas</div>
+  <h2>Tips, Traps & Small Details</h2>
+
+  <div class="tips-grid">
+    <div class="tip blue">
+      <strong>🔵 Blazor Server — Circuit & Memory</strong>
+      Each connected user holds a "circuit" in server RAM. 1000 users = 1000 persistent WebSocket connections + 1000 in-memory state objects. Plan server RAM accordingly.
+    </div>
+    <div class="tip amber">
+      <strong>🟡 WASM — Initial Load is Cached</strong>
+      The heavy 5–20MB download happens only once. After that, browsers cache dotnet.wasm and DLLs aggressively. Subsequent visits feel much faster.
+    </div>
+    <div class="tip red">
+      <strong>⚠️ Blazor Server — Connection Drop</strong>
+      If the WebSocket connection drops (bad wifi, server restart), the UI shows a "Attempting to reconnect..." spinner. The app is completely frozen until reconnection. Design for this gracefully.
+    </div>
+    <div class="tip amber">
+      <strong>🟡 WASM — No Secrets in Code</strong>
+      Never put API keys, DB connection strings, or sensitive logic in WASM. Users can download and decompile your DLLs using tools like ILSpy. Always validate on the server/API.
+    </div>
+    <div class="tip blue">
+      <strong>🔵 Blazor Server — Scaling Out is Hard</strong>
+      Adding multiple server instances behind a load balancer requires sticky sessions (a user must always hit the same server) or using Azure SignalR Service as a backplane.
+    </div>
+    <div class="tip green">
+      <strong>⚡ .NET 8 Auto Mode — Best of Both</strong>
+      InteractiveAuto starts with Server for fast first load, then silently downloads WASM in the background. Next navigation switches to WASM. Transparent to the user, best UX.
+    </div>
+    <div class="tip blue">
+      <strong>🔵 Streaming Rendering</strong>
+      Blazor Server supports Streaming Rendering — send the HTML shell immediately, then stream in the data parts as they resolve. Perceived performance is dramatically better for slow data pages.
+    </div>
+    <div class="tip amber">
+      <strong>🟡 WASM AOT Compilation</strong>
+      Ahead-Of-Time (AOT) compilation compiles C# directly to native WASM bytecode. Massive runtime performance gain, but increases download size further. Enable with <span class="highlight-inline">RunAOTCompilation=true</span>.
+    </div>
+    <div class="tip green">
+      <strong>⚡ Shared Code Between Models</strong>
+      The biggest Blazor superpower: same Razor component files work with any hosting model. Business logic in a shared library is reusable across Server, WASM, and Blazor Hybrid (MAUI).
+    </div>
+    <div class="tip red">
+      <strong>⚠️ WASM NuGet Compatibility</strong>
+      Not all NuGet packages work in WASM because the browser sandbox blocks many OS-level APIs (file system, sockets, etc.). Always check a package for "browser compatible" or "blazorwasm" tags before using.
+    </div>
+  </div>
+</section>
+
+<!-- SECTION 10: QUICK SUMMARY -->
+<section style="border-bottom: none;">
+  <div class="section-label">10 — TL;DR</div>
+  <h2>Quick Summary</h2>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+    <div class="arch-box server-box">
+      <div class="arch-title blue">🔵 Blazor Server in One Sentence</div>
+      <p style="color:#b0bcd4; font-size:14px; margin:0;">Your C# code runs on the server, and the browser is just a dumb terminal that receives binary DOM patches over a permanent WebSocket — fast to start, powerful, but requires a constant server connection.</p>
+    </div>
+    <div class="arch-box wasm-box">
+      <div class="arch-title amber">🟡 Blazor WASM in One Sentence</div>
+      <p style="color:#b0bcd4; font-size:14px; margin:0;">Your entire .NET app downloads and runs inside the browser — slow to start but blazingly fast after, offline-capable, scales cheaply, but every server operation needs a proper API endpoint.</p>
+    </div>
+  </div>
+
+  <div style="margin-top:20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px;">
+    <div style="font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--accent); letter-spacing:2px; margin-bottom:14px;">THE GOLDEN RULE</div>
+    <p style="font-family:'Fraunces',serif; font-size:1.2rem; color:var(--text); font-style:italic; margin:0;">
+      "Start with Blazor Server for simplicity. Choose WebAssembly when you need offline support, plan to build mobile clients, or need to scale to thousands of users with cheap hosting. Use <span style="color:var(--accent)">InteractiveAuto</span> in .NET 8+ when you want the best of both worlds."
+    </p>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  🔵 Blazor Server → SignalR WebSocket &nbsp;|&nbsp; 🟡 Blazor WASM → HTTP API &nbsp;|&nbsp; ⚡ .NET 8 Render Modes<br>
+  <span style="opacity:0.4; margin-top:4px; display:block;">Research compiled from Microsoft Docs, Telerik, Auth0, RoundTheCode, C# Corner & more · March 2026</span>
+</footer>
+
+</body>
+</html>

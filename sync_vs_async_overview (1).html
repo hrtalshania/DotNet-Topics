@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sync vs Async — .NET Guide</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --color-bg: #ffffff;
+    --color-bg2: #f7f7f5;
+    --color-bg3: #f1efe8;
+    --color-bg-info: #e6f1fb;
+    --color-bg-success: #eaf3de;
+    --color-bg-warning: #faeeda;
+    --color-bg-danger: #fcebeb;
+    --color-text: #1a1a18;
+    --color-text2: #5f5e5a;
+    --color-text3: #888780;
+    --color-text-info: #185fa5;
+    --color-text-success: #3b6d11;
+    --color-text-warning: #854f0b;
+    --color-text-danger: #a32d2d;
+    --color-border: rgba(0,0,0,0.12);
+    --color-border2: rgba(0,0,0,0.2);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg: #1e1e1c;
+      --color-bg2: #252523;
+      --color-bg3: #2c2c2a;
+      --color-bg-info: #042c53;
+      --color-bg-success: #173404;
+      --color-bg-warning: #412402;
+      --color-bg-danger: #501313;
+      --color-text: #e8e6de;
+      --color-text2: #b4b2a9;
+      --color-text3: #888780;
+      --color-text-info: #85b7eb;
+      --color-text-success: #97c459;
+      --color-text-warning: #ef9f27;
+      --color-text-danger: #f09595;
+      --color-border: rgba(255,255,255,0.1);
+      --color-border2: rgba(255,255,255,0.2);
+    }
+  }
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-bg);
+    color: var(--color-text);
+    padding: 2rem 1rem;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+  .page-title {
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--color-text);
+    margin-bottom: .25rem;
+  }
+  .page-sub {
+    font-size: 14px;
+    color: var(--color-text2);
+    margin-bottom: 1.5rem;
+  }
+  h2{font-size:18px;font-weight:500;color:var(--color-text);margin-bottom:.75rem}
+  h3{font-size:15px;font-weight:500;color:var(--color-text);margin-bottom:.5rem}
+  p,li{font-size:14px;line-height:1.7;color:var(--color-text2)}
+  ul{padding-left:1.2rem}
+  code{font-family:var(--font-mono);font-size:12.5px;background:var(--color-bg2);padding:2px 6px;border-radius:4px;color:var(--color-text)}
+  pre{background:var(--color-bg2);border:0.5px solid var(--color-border);border-radius:8px;padding:1rem;overflow-x:auto;margin:.75rem 0}
+  pre code{background:none;padding:0;font-size:12.5px;line-height:1.8}
+  .kw{color:#7059dd}
+  .cm{color:#888;font-style:italic}
+  .str{color:#1d9e75}
+  .section{padding:1.5rem 0;border-bottom:0.5px solid var(--color-border)}
+  .section:last-child{border-bottom:none}
+  .tab-bar{display:flex;gap:4px;margin-bottom:1rem;border-bottom:0.5px solid var(--color-border);flex-wrap:wrap;}
+  .tab{padding:8px 16px;font-size:13px;font-weight:500;color:var(--color-text2);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s;white-space:nowrap}
+  .tab:hover{color:var(--color-text)}
+  .tab.active{color:var(--color-text);border-bottom-color:var(--color-text)}
+  .panel{display:none}
+  .panel.active{display:block}
+  .badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:4px;margin-right:4px}
+  .badge-sync{background:var(--color-bg-warning);color:var(--color-text-warning)}
+  .badge-async{background:var(--color-bg-info);color:var(--color-text-info)}
+  .vis{width:100%;margin:1rem 0}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{padding:10px 12px;text-align:left;font-weight:500;color:var(--color-text);background:var(--color-bg2);border:0.5px solid var(--color-border)}
+  td{padding:9px 12px;border:0.5px solid var(--color-border);color:var(--color-text2);vertical-align:top}
+  tr:nth-child(even) td{background:var(--color-bg2)}
+  .tag-y{color:var(--color-text-success);font-weight:500}
+  .tag-n{color:var(--color-text-danger);font-weight:500}
+  .tag-m{color:var(--color-text-warning);font-weight:500}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:.75rem 0}
+  .card{background:var(--color-bg2);border:0.5px solid var(--color-border);border-radius:10px;padding:.9rem 1rem}
+  .card h4{font-size:13px;font-weight:500;color:var(--color-text);margin-bottom:.4rem}
+  .card p{font-size:13px}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}}
+  svg text { font-family: var(--font-sans); }
+
+  /* NEW: Callout/explanation boxes */
+  .callout{border-radius:8px;padding:.85rem 1rem;margin:.75rem 0;font-size:13.5px;line-height:1.65}
+  .callout p{font-size:13.5px;line-height:1.65}
+  .callout-info{background:var(--color-bg-info);border-left:3px solid #185fa5;color:var(--color-text-info)}
+  .callout-info p{color:var(--color-text-info)}
+  .callout-success{background:var(--color-bg-success);border-left:3px solid #3b6d11;color:var(--color-text-success)}
+  .callout-success p{color:var(--color-text-success)}
+  .callout-warning{background:var(--color-bg-warning);border-left:3px solid #854f0b;color:var(--color-text-warning)}
+  .callout-warning p{color:var(--color-text-warning)}
+  .callout-danger{background:var(--color-bg-danger);border-left:3px solid #a32d2d;color:var(--color-text-danger)}
+  .callout-danger p{color:var(--color-text-danger)}
+  .explain-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem;opacity:.8}
+  .step-list{display:flex;flex-direction:column;gap:.5rem;margin:.6rem 0}
+  .step{display:flex;gap:.65rem;align-items:flex-start}
+  .step-num{min-width:22px;height:22px;border-radius:50%;background:var(--color-bg3);border:0.5px solid var(--color-border2);font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;color:var(--color-text3);flex-shrink:0;margin-top:2px}
+  .step p{font-size:13.5px}
+  .myth-box{background:var(--color-bg2);border:0.5px solid var(--color-border);border-radius:10px;padding:1rem;margin:.6rem 0}
+  .myth-header{display:flex;gap:.5rem;align-items:center;margin-bottom:.4rem}
+  .myth-header span{font-size:13px;font-weight:500;color:var(--color-text)}
+  .myth-body{font-size:13px;color:var(--color-text2);line-height:1.65}
+  .highlight-line{background:rgba(112,89,221,0.08);border-left:3px solid #7059dd;padding:.5rem .75rem;border-radius:0 6px 6px 0;font-size:13px;color:var(--color-text);margin:.5rem 0;line-height:1.6}
+</style>
+</head>
+<body>
+
+<p class="page-title">Sync vs Async — Complete .NET Guide</p>
+<p class="page-sub">General concepts, C# / ASP.NET Core examples, when to use each, and a full comparison table.</p>
+
+<div class="tab-bar">
+  <button class="tab active" onclick="showTab('general',this)">General Concepts</button>
+  <button class="tab" onclick="showTab('dotnet',this)">ASP.NET / C#</button>
+  <button class="tab" onclick="showTab('myth',this)">Fix My Thinking 🧠</button>
+  <button class="tab" onclick="showTab('extra',this)">Extra Concepts</button>
+  <button class="tab" onclick="showTab('when',this)">When to Use</button>
+  <button class="tab" onclick="showTab('compare',this)">Comparison Table</button>
+</div>
+
+<!-- TAB 1: General Concepts -->
+<div class="panel active" id="tab-general">
+  <div class="section">
+    <h2>What is Synchronous execution?</h2>
+    <p>In a synchronous model, tasks run one after another. The program <strong style="font-weight:500;color:var(--color-text)">blocks and waits</strong> for each operation to complete before moving to the next line.</p>
+
+    <div class="callout callout-info" style="margin-bottom:.5rem">
+      <div class="explain-label">Plain English</div>
+      <p>Imagine you order a pizza and you <strong>stand at the door, doing nothing</strong>, until the delivery person rings the bell. You can't cook, watch TV, or do anything else — you're just waiting. That's synchronous. The program literally freezes (blocks) on that one task until it's done.</p>
+    </div>
+
+    <svg class="vis" viewBox="0 0 640 135" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="a1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+      <text x="20" y="38" font-size="11" fill="#888780">Thread</text>
+      <rect x="20" y="48" width="130" height="34" rx="6" fill="#534AB7" opacity=".9"/>
+      <text x="85" y="70" font-size="12" fill="#EEEDFE" text-anchor="middle" dominant-baseline="central">Task A (50ms)</text>
+      <rect x="154" y="48" width="130" height="34" rx="6" fill="#0F6E56" opacity=".9"/>
+      <text x="219" y="70" font-size="12" fill="#E1F5EE" text-anchor="middle" dominant-baseline="central">DB call (200ms)</text>
+      <rect x="288" y="48" width="130" height="34" rx="6" fill="#993C1D" opacity=".9"/>
+      <text x="353" y="70" font-size="12" fill="#FAECE7" text-anchor="middle" dominant-baseline="central">Task B (80ms)</text>
+      <rect x="422" y="48" width="100" height="34" rx="6" fill="#534AB7" opacity=".9"/>
+      <text x="472" y="70" font-size="12" fill="#EEEDFE" text-anchor="middle" dominant-baseline="central">Task C (40ms)</text>
+      <rect x="154" y="86" width="130" height="14" rx="3" fill="#E24B4A" opacity=".3"/>
+      <text x="219" y="95" font-size="10" fill="#A32D2D" text-anchor="middle" dominant-baseline="central">⛔ THREAD BLOCKED</text>
+      <line x1="20" y1="115" x2="540" y2="115" stroke="#888780" stroke-width="0.8" marker-end="url(#a1)" opacity=".5"/>
+      <text x="280" y="128" font-size="11" fill="#888780" text-anchor="middle">Time →   Total ≈ 370ms</text>
+    </svg>
+
+    <div class="callout callout-warning">
+      <div class="explain-label">📊 What the diagram shows</div>
+      <p>There is <strong>one thread</strong> (like one worker). It does Task A first (50ms), then waits doing nothing during the DB call (200ms — this is where it's blocked!), then Task B, then Task C. Everything is queued one by one. Total = 50+200+80+40 = <strong>370ms wasted on a single thread</strong>.</p>
+    </div>
+
+    <p>The thread is <strong style="font-weight:500;color:#E24B4A">blocked</strong> during the DB call — it cannot do anything else. All time is sequential.</p>
+  </div>
+
+  <div class="section">
+    <h2>What is Asynchronous execution?</h2>
+    <p>In an asynchronous model, the thread does <strong style="font-weight:500;color:var(--color-text)">not wait</strong> for slow I/O operations. It hands off the work and is free to do other things while waiting for a callback/completion.</p>
+
+    <div class="callout callout-info" style="margin-bottom:.5rem">
+      <div class="explain-label">Plain English</div>
+      <p>Now imagine you order that pizza, and then you just <strong>go live your life</strong> — cook, watch TV, whatever. When the delivery arrives, the doorbell rings and you go pick it up. That's async. You handed off the waiting to "someone else" (the OS/hardware) and came back only when the result was ready.</p>
+    </div>
+
+    <svg class="vis" viewBox="0 0 640 175" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+      <text x="20" y="38" font-size="11" fill="#888780">Thread</text>
+      <text x="20" y="120" font-size="11" fill="#888780">I/O Layer</text>
+      <rect x="20" y="48" width="110" height="34" rx="6" fill="#534AB7" opacity=".9"/>
+      <text x="75" y="70" font-size="12" fill="#EEEDFE" text-anchor="middle" dominant-baseline="central">Task A (50ms)</text>
+      <line x1="134" y1="65" x2="155" y2="65" stroke="#888" stroke-width="1" stroke-dasharray="3 3"/>
+      <text x="134" y="58" font-size="10" fill="#888780">await ↓</text>
+      <rect x="155" y="48" width="155" height="34" rx="6" fill="#0F6E56" opacity=".6"/>
+      <text x="232" y="70" font-size="12" fill="#E1F5EE" text-anchor="middle" dominant-baseline="central">Handle other requests</text>
+      <rect x="134" y="128" width="200" height="28" rx="6" fill="#0F6E56" opacity=".9"/>
+      <text x="234" y="144" font-size="12" fill="#E1F5EE" text-anchor="middle" dominant-baseline="central">DB call running (200ms)</text>
+      <line x1="314" y1="142" x2="314" y2="58" stroke="#888" stroke-width="1" stroke-dasharray="3 3" marker-end="url(#a2)"/>
+      <text x="316" y="58" font-size="10" fill="#888780">resume ↑</text>
+      <rect x="318" y="48" width="90" height="34" rx="6" fill="#993C1D" opacity=".9"/>
+      <text x="363" y="70" font-size="12" fill="#FAECE7" text-anchor="middle" dominant-baseline="central">Task B (80ms)</text>
+      <rect x="412" y="48" width="90" height="34" rx="6" fill="#534AB7" opacity=".9"/>
+      <text x="457" y="70" font-size="12" fill="#EEEDFE" text-anchor="middle" dominant-baseline="central">Task C (40ms)</text>
+      <line x1="20" y1="163" x2="530" y2="163" stroke="#888780" stroke-width="0.8" marker-end="url(#a2)" opacity=".5"/>
+      <text x="275" y="175" font-size="11" fill="#888780" text-anchor="middle">Time →   Wall time ≈ 200ms (thread was free during I/O)</text>
+    </svg>
+
+    <div class="callout callout-success">
+      <div class="explain-label">📊 What the diagram shows</div>
+      <p>The thread hits <code>await</code> before the DB call and <strong>releases itself</strong> to handle other requests. Meanwhile, the DB call runs independently in the I/O layer. When it finishes, the thread is notified and <strong>resumes from where it left off</strong>. Wall time ≈ 200ms (the DB was the bottleneck anyway, but the thread wasn't sitting idle).</p>
+    </div>
+
+    <p>The thread is <strong style="font-weight:500;color:#1D9E75">released</strong> during the DB call — it can serve other requests. When DB finishes, a thread resumes from where it left off.</p>
+  </div>
+
+  <div class="section">
+    <h2>Key mental model</h2>
+    <div class="grid2">
+      <div class="card">
+        <h4>🧱 Sync — like a single cashier</h4>
+        <p>One customer at a time. The cashier waits while the customer digs for coins. Nobody else gets served.</p>
+      </div>
+      <div class="card">
+        <h4>⚡ Async — like a restaurant kitchen</h4>
+        <p>Chef places an order to the oven, doesn't wait — goes and preps the next dish. Gets notified when the oven's done.</p>
+      </div>
+    </div>
+
+    <div class="callout callout-info" style="margin-top:.75rem">
+      <div class="explain-label">Another Real-Life Example (Developer Perspective)</div>
+      <p>Think of making a WhatsApp call vs sending a message. A phone call (sync) — you stop everything, talk, wait for the other person to finish, then reply. A message (async) — you send it, go do other things, and reply when the other person responds. Your whole day doesn't stop for one conversation.</p>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 2: .NET / C# -->
+<div class="panel" id="tab-dotnet">
+
+  <div class="section">
+    <h2>C# async/await — How it works</h2>
+    <p>C# uses the <code>async</code> / <code>await</code> keywords built on top of the <code>Task</code> and <code>Task&lt;T&gt;</code> types (TPL — Task Parallel Library). The compiler transforms <code>async</code> methods into a state machine under the hood.</p>
+
+    <div class="callout callout-info">
+      <div class="explain-label">What is a "State Machine"? (Plain English)</div>
+      <p>When you write <code>async/await</code>, the C# compiler secretly rewrites your method behind the scenes into a class that <strong>remembers where it paused</strong> and can pick up from that exact spot. You write nice readable code; the compiler does the complex machinery. You don't need to write that machinery yourself — <code>async/await</code> is just the friendly face on top of it.</p>
+    </div>
+
+    <div class="grid2">
+      <div>
+        <h3><span class="badge badge-sync">SYNC</span> Blocking version</h3>
+<pre><code><span class="cm">// Thread blocked until DB returns</span>
+<span class="kw">public</span> string GetUser(<span class="kw">int</span> id)
+{
+    <span class="kw">var</span> user = _db.Users
+                  .Find(id);   <span class="cm">// BLOCKS ⛔</span>
+    <span class="kw">return</span> user.Name;
+}
+
+<span class="cm">// Calling it</span>
+<span class="kw">var</span> name = GetUser(42);
+Console.WriteLine(name);
+</code></pre>
+        <div class="callout callout-warning" style="margin-top:.5rem">
+          <div class="explain-label">What happens here</div>
+          <p><code>_db.Users.Find(id)</code> goes to the database and the thread <strong>freezes and waits</strong> until the DB replies. If 500 users call this API at the same time, you need 500 threads all sitting idle waiting for the DB. That's wasteful and doesn't scale.</p>
+        </div>
+      </div>
+      <div>
+        <h3><span class="badge badge-async">ASYNC</span> Non-blocking version</h3>
+<pre><code><span class="cm">// Thread free during await</span>
+<span class="kw">public async</span> Task&lt;string&gt; GetUserAsync(<span class="kw">int</span> id)
+{
+    <span class="kw">var</span> user = <span class="kw">await</span> _db.Users
+                  .FindAsync(id);  <span class="cm">// ✅ free</span>
+    <span class="kw">return</span> user.Name;
+}
+
+<span class="cm">// Calling it</span>
+<span class="kw">var</span> name = <span class="kw">await</span> GetUserAsync(42);
+Console.WriteLine(name);
+</code></pre>
+        <div class="callout callout-success" style="margin-top:.5rem">
+          <div class="explain-label">What happens here</div>
+          <p>When the code hits <code>await _db.Users.FindAsync(id)</code>, the thread is <strong>released back to the thread pool</strong> — it goes handle other requests. When the DB finally responds, a thread (maybe the same, maybe a different one) picks up and runs <code>return user.Name</code>. 500 users, same DB work, but far fewer threads needed.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout callout-info" style="margin-top:.5rem">
+      <div class="explain-label">💡 The naming convention</div>
+      <p>Notice that the async version is named <code>GetUserAsync</code> (with "Async" at the end). This is a standard C# convention — always add <code>Async</code> suffix to async methods. It helps callers know they need to <code>await</code> it. You'll see this pattern everywhere: <code>ReadAsync</code>, <code>SaveAsync</code>, <code>ToListAsync</code>, etc.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Return types in .NET async</h2>
+    <div class="callout callout-info" style="margin-bottom:.75rem">
+      <div class="explain-label">Why can't async methods just return string or int directly?</div>
+      <p>Because the method might not have the result <em>yet</em> when it returns. So instead of returning the actual value, it returns a <strong>promise</strong> — "I'll have this value for you eventually." In C#, that promise is called a <code>Task&lt;T&gt;</code>. When you <code>await</code> it, you get the actual value out.</p>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h4><code>Task</code></h4>
+        <p>Async method with no return value. Use like <code>void</code> but awaitable.</p>
+        <p style="margin-top:.4rem;font-size:12px;color:var(--color-text3)">Example: <code>async Task SaveFileAsync()</code> — saves a file, nothing to return.</p>
+      </div>
+      <div class="card">
+        <h4><code>Task&lt;T&gt;</code></h4>
+        <p>Async method that returns a value of type T when done.</p>
+        <p style="margin-top:.4rem;font-size:12px;color:var(--color-text3)">Example: <code>async Task&lt;string&gt; GetNameAsync()</code> — will eventually give you a string.</p>
+      </div>
+      <div class="card">
+        <h4><code>ValueTask&lt;T&gt;</code></h4>
+        <p>Lighter-weight. Used when result is often available synchronously (e.g. cached data). Avoids heap allocation.</p>
+        <p style="margin-top:.4rem;font-size:12px;color:var(--color-text3)">Use this only when you <em>know</em> the result is usually cached. Otherwise just use <code>Task&lt;T&gt;</code>.</p>
+      </div>
+      <div class="card">
+        <h4><code>async void</code></h4>
+        <p>Only for top-level event handlers (e.g. button clicks in WinForms/WPF). Never use in libraries — exceptions are unobservable.</p>
+        <p style="margin-top:.4rem;font-size:12px;color:var(--color-text3)">If it throws an exception, nothing catches it — app may crash silently. Avoid in all non-UI code.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>ASP.NET Core Controller — Sync vs Async</h2>
+<pre><code><span class="cm">// ❌ Sync — blocks a thread pool thread for every request</span>
+[HttpGet(<span class="str">"{id}"</span>)]
+<span class="kw">public</span> IActionResult GetProduct(<span class="kw">int</span> id)
+{
+    <span class="kw">var</span> product = _repo.GetById(id);   <span class="cm">// thread blocked</span>
+    <span class="kw">if</span> (product == <span class="kw">null</span>) <span class="kw">return</span> NotFound();
+    <span class="kw">return</span> Ok(product);
+}
+
+<span class="cm">// ✅ Async — thread released during DB I/O</span>
+[HttpGet(<span class="str">"{id}"</span>)]
+<span class="kw">public async</span> Task&lt;IActionResult&gt; GetProductAsync(<span class="kw">int</span> id)
+{
+    <span class="kw">var</span> product = <span class="kw">await</span> _repo.GetByIdAsync(id);
+    <span class="kw">if</span> (product == <span class="kw">null</span>) <span class="kw">return</span> NotFound();
+    <span class="kw">return</span> Ok(product);
+}
+</code></pre>
+    <div class="callout callout-success">
+      <div class="explain-label">📖 Line-by-line explanation (Async version)</div>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><p><code>public async Task&lt;IActionResult&gt;</code> — This method is async. It will eventually return an <code>IActionResult</code>. The <code>async</code> keyword tells C# "this method will use <code>await</code> inside."</p></div>
+        <div class="step"><div class="step-num">2</div><p><code>await _repo.GetByIdAsync(id)</code> — Here the magic happens. The thread hits this line, says "I'll come back when DB is done," and gets released to handle other incoming HTTP requests.</p></div>
+        <div class="step"><div class="step-num">3</div><p><code>if (product == null) return NotFound();</code> — This only runs <em>after</em> the DB responds. Execution resumes here automatically. From your perspective as a developer, it looks like normal sequential code — just with <code>await</code> added.</p></div>
+        <div class="step"><div class="step-num">4</div><p><code>return Ok(product)</code> — Returns the 200 response. The whole method reads top to bottom just like sync code, but internally the thread was free during step 2.</p></div>
+      </div>
+    </div>
+
+    <div class="callout callout-warning" style="margin-top:.5rem">
+      <div class="explain-label">⚡ Real-world impact</div>
+      <p>In an ASP.NET Core app under load: sync version with 100 concurrent users = 100 threads blocked waiting for DB. Async version with 100 concurrent users = maybe 5–10 threads handling everything, because they're released while waiting. <strong>Async lets your server do more with less.</strong></p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Running tasks in parallel — <code>Task.WhenAll</code></h2>
+    <p>When you need multiple async results and they are independent — run them together, don't await one by one.</p>
+<pre><code><span class="cm">// ❌ Sequential — total = 300ms (100 + 100 + 100)</span>
+<span class="kw">var</span> a = <span class="kw">await</span> GetOrdersAsync();
+<span class="kw">var</span> b = <span class="kw">await</span> GetProductsAsync();
+<span class="kw">var</span> c = <span class="kw">await</span> GetCustomersAsync();
+
+<span class="cm">// ✅ Parallel — total ≈ 100ms (all run concurrently)</span>
+<span class="kw">var</span> (orders, products, customers) = <span class="kw">await</span> (
+    GetOrdersAsync(),
+    GetProductsAsync(),
+    GetCustomersAsync()
+);
+<span class="cm">// Or with Task.WhenAll:</span>
+<span class="kw">var</span> tasks = <span class="kw">new</span>[] { task1, task2, task3 };
+<span class="kw">await</span> Task.WhenAll(tasks);
+</code></pre>
+    <div class="callout callout-info">
+      <div class="explain-label">📖 What's happening in the ❌ sequential version</div>
+      <p>Each <code>await</code> waits for <em>that one call to finish</em> before even starting the next. So GetOrders finishes → then GetProducts starts → then GetCustomers starts. Total = 100+100+100 = 300ms. These three calls have <strong>nothing to do with each other</strong>, so why wait? That's wasted time.</p>
+    </div>
+    <div class="callout callout-success" style="margin-top:.5rem">
+      <div class="explain-label">📖 What's happening in the ✅ parallel version</div>
+      <p>All three calls are <strong>started at the same time</strong> (none are awaited individually). Then <code>Task.WhenAll</code> waits for <em>all of them together</em>. They run side by side. If each takes 100ms, total wall time ≈ 100ms. Think of it like boiling three pots of water simultaneously vs one after another.</p>
+    </div>
+    <div class="callout callout-warning" style="margin-top:.5rem">
+      <div class="explain-label">⚠️ When NOT to use parallel</div>
+      <p>If the second call <em>depends on the result</em> of the first, you cannot run them in parallel. For example, first get the user → then get their orders using the user's ID. In that case, you must await them sequentially.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Common anti-patterns to avoid</h2>
+<pre><code><span class="cm">// ❌ .Result / .Wait() — causes deadlocks in ASP.NET!</span>
+<span class="kw">var</span> result = GetUserAsync(1).Result;   <span class="cm">// DEADLOCK risk</span>
+GetUserAsync(1).Wait();                 <span class="cm">// DEADLOCK risk</span>
+
+<span class="cm">// ❌ async void (outside event handlers)</span>
+<span class="kw">public async void</span> LoadData()   <span class="cm">// exception swallowed!</span>
+{ ... }
+
+<span class="cm">// ❌ Unnecessary async wrapper</span>
+<span class="kw">public async</span> Task&lt;string&gt; GetNameAsync()
+{
+    <span class="kw">return await</span> _db.GetNameAsync();  <span class="cm">// extra state machine, no benefit</span>
+}
+<span class="cm">// ✅ Better — just return the Task directly</span>
+<span class="kw">public</span> Task&lt;string&gt; GetNameAsync()
+    =&gt; _db.GetNameAsync();
+</code></pre>
+
+    <div class="callout callout-danger">
+      <div class="explain-label">💀 Anti-pattern 1: .Result / .Wait() — Why it deadlocks</div>
+      <p><code>.Result</code> is basically forcing sync behavior on an async method — you're saying "block this thread right here until the task finishes." In ASP.NET, there's a <strong>SynchronizationContext</strong> that manages which thread resumes the async code. When you call <code>.Result</code>, you block the current thread. But the async method needs <em>that same thread</em> to resume — so they both wait for each other forever. <strong>That's a deadlock.</strong> Rule: if a method is async, always <code>await</code> it — never call <code>.Result</code> or <code>.Wait()</code>.</p>
+    </div>
+
+    <div class="callout callout-danger" style="margin-top:.5rem">
+      <div class="explain-label">💀 Anti-pattern 2: async void</div>
+      <p>When an <code>async void</code> method throws an exception, <strong>nobody catches it</strong>. It goes straight to the top-level exception handler, which usually means your application crashes or silently swallows the error. Always use <code>async Task</code> so the exception is attached to the task and the caller can catch it properly.</p>
+    </div>
+
+    <div class="callout callout-warning" style="margin-top:.5rem">
+      <div class="explain-label">🔶 Anti-pattern 3: Unnecessary async wrapper</div>
+      <p>If your async method just awaits one thing and immediately returns it, you don't need <code>async/await</code> at all — just return the Task directly. Adding <code>async/await</code> without reason creates an extra state machine object (more memory), extra exception wrapping, and no real benefit. Just pass the Task through.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>CancellationToken — cancellable async</h2>
+<pre><code><span class="kw">public async</span> Task&lt;List&lt;Order&gt;&gt; GetOrdersAsync(
+    CancellationToken ct = <span class="kw">default</span>)
+{
+    <span class="kw">return await</span> _db.Orders
+        .Where(o =&gt; o.Active)
+        .ToListAsync(ct);  <span class="cm">// cancels if client disconnects</span>
+}
+
+<span class="cm">// In controller — ASP.NET passes CancellationToken automatically:</span>
+[HttpGet]
+<span class="kw">public async</span> Task&lt;IActionResult&gt; GetOrders(
+    CancellationToken cancellationToken)
+{
+    <span class="kw">var</span> orders = <span class="kw">await</span> GetOrdersAsync(cancellationToken);
+    <span class="kw">return</span> Ok(orders);
+}
+</code></pre>
+    <div class="callout callout-info">
+      <div class="explain-label">📖 What is CancellationToken and why do you need it?</div>
+      <p>Imagine a user opens your app, clicks "Load Orders," then immediately closes the browser tab. Without <code>CancellationToken</code>, your server would still run the DB query, get all the data, process it — and then throw it away because nobody is listening anymore. <strong>Wasted work.</strong> <code>CancellationToken</code> is a signal you pass through your whole chain. When the client disconnects, ASP.NET signals the token as "cancelled," and any awaitable that supports it (like <code>ToListAsync(ct)</code>) will immediately stop and clean up. Best practice: always accept and forward the <code>CancellationToken</code> in your async methods.</p>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 3: Fix My Thinking -->
+<div class="panel" id="tab-myth">
+  <div class="section">
+    <h2>🧠 "await stops the next line from running" — Is that right?</h2>
+
+    <p style="margin-bottom:.75rem">This is probably the biggest misconception developers have when they first learn async/await. Let's fix it properly.</p>
+
+    <div class="myth-box">
+      <div class="myth-header"><span>❌ Common belief (partially wrong)</span></div>
+      <div class="myth-body">"When I add <code>await</code>, the next line doesn't execute until the awaited thing is done. So isn't it the same as synchronous? What's the difference?"</div>
+    </div>
+
+    <div class="callout callout-success" style="margin-top:.75rem">
+      <div class="explain-label">✅ The correct mental model</div>
+      <p>You're <strong>half right</strong> — the <em>code after the await</em> (in the same method) does wait. But the <strong>thread itself does NOT wait</strong>. That's the key difference. Let's break it down:</p>
+    </div>
+
+    <div class="step-list" style="margin:.75rem 0">
+      <div class="step"><div class="step-num">1</div><p><strong>The code after await does pause</strong> — yes, <code>Console.WriteLine(name)</code> won't run until <code>GetUserAsync</code> finishes. From a code-logic standpoint, it's sequential.</p></div>
+      <div class="step"><div class="step-num">2</div><p><strong>But the thread is released</strong> — while waiting for the DB, the actual CPU thread goes back to the thread pool and handles <em>other</em> work (like other HTTP requests). It's not sitting there doing nothing.</p></div>
+      <div class="step"><div class="step-num">3</div><p><strong>When the task completes</strong>, a thread (could be same or different one) picks up your method and runs the next line. You don't notice the thread switch — your code just continues.</p></div>
+    </div>
+
+    <div class="highlight-line">
+      Think of it this way: <strong>await pauses your method, not your thread.</strong> The thread goes do other work and comes back when your method needs to resume.
+    </div>
+
+    <div class="callout callout-info" style="margin-top:.75rem">
+      <div class="explain-label">Real-life comparison</div>
+      <p>You're a waiter in a restaurant (the thread). You take an order (method call) and send it to the kitchen (DB / API call). You don't stand by the kitchen window staring — you go serve other tables (other requests). When the kitchen rings the bell (task completes), you pick up the dish and deliver it (resume the method). <strong>The order was "waiting" — but you weren't idle.</strong></p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>So what exactly does <code>await</code> do?</h2>
+    <div class="grid2">
+      <div class="card" style="border-left:3px solid #534AB7">
+        <h4>What await does do ✅</h4>
+        <ul style="margin-top:.4rem;display:flex;flex-direction:column;gap:.3rem">
+          <li>Pauses the <em>current method</em> at that line</li>
+          <li>Frees the thread to do other work</li>
+          <li>Resumes the method when the task is done</li>
+          <li>Unwraps the result from <code>Task&lt;T&gt;</code> to <code>T</code></li>
+          <li>Propagates exceptions cleanly</li>
+        </ul>
+      </div>
+      <div class="card" style="border-left:3px solid #993C1D">
+        <h4>What await does NOT do ❌</h4>
+        <ul style="margin-top:.4rem;display:flex;flex-direction:column;gap:.3rem">
+          <li>Does NOT create a new thread</li>
+          <li>Does NOT block the calling thread</li>
+          <li>Does NOT make things run in parallel (by itself)</li>
+          <li>Does NOT make the operation faster by itself</li>
+          <li>Does NOT guarantee same thread resumes</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Code walkthrough — exact execution order</h2>
+    <p style="margin-bottom:.6rem">Let's trace through a simple example step by step so you know exactly when each line runs:</p>
+
+<pre><code><span class="kw">public async</span> Task DoWorkAsync()
+{
+    Console.WriteLine(<span class="str">"Step 1"</span>);          <span class="cm">// runs immediately</span>
+    
+    <span class="kw">var</span> data = <span class="kw">await</span> FetchDataFromDbAsync();  <span class="cm">// thread released here</span>
+    
+    Console.WriteLine(<span class="str">"Step 2"</span>);          <span class="cm">// runs AFTER DB responds</span>
+    Console.WriteLine(data);               <span class="cm">// runs AFTER DB responds</span>
+}
+</code></pre>
+
+    <div class="callout callout-info">
+      <div class="explain-label">Exact execution flow</div>
+      <div class="step-list">
+        <div class="step"><div class="step-num">1</div><p>"Step 1" prints. Thread is running normally.</p></div>
+        <div class="step"><div class="step-num">2</div><p>Thread hits <code>await FetchDataFromDbAsync()</code>. The DB call is started. Thread says "I'll be back" and goes free — handles other requests.</p></div>
+        <div class="step"><div class="step-num">3</div><p>(Time passes — DB is doing its thing. Your method is "paused" at this line.)</p></div>
+        <div class="step"><div class="step-num">4</div><p>DB responds. A thread picks up your method, unwraps the result into <code>data</code>, and continues.</p></div>
+        <div class="step"><div class="step-num">5</div><p>"Step 2" prints. <code>data</code> is printed. Method finishes.</p></div>
+      </div>
+    </div>
+
+    <div class="callout callout-warning" style="margin-top:.5rem">
+      <div class="explain-label">The KEY insight</div>
+      <p>From a <strong>code logic</strong> perspective: yes, Step 2 only runs after the DB. Sequential. ✅<br>From a <strong>thread/server</strong> perspective: the thread was FREE between step 2 and 3, serving other users. ✅<br>Both are true at the same time. That's the power of async/await.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Does adding async/await make my code faster?</h2>
+    <div class="myth-box">
+      <div class="myth-header"><span>❌ Myth: "async makes my DB query run faster"</span></div>
+      <div class="myth-body">Async/await does NOT make the individual operation faster. Your DB query still takes 200ms. Your API call still takes 500ms.</div>
+    </div>
+    <div class="callout callout-success" style="margin-top:.5rem">
+      <div class="explain-label">✅ What async actually improves</div>
+      <p>Async improves <strong>throughput</strong> (how many requests your server can handle at the same time) and <strong>resource efficiency</strong> (fewer threads needed). Under high load, an async server can serve 10,000 requests with a handful of threads. A sync server would need 10,000 threads — which is impractical and memory-hungry.</p>
+    </div>
+  </div>
+</div>
+
+<!-- TAB 4: Extra Concepts -->
+<div class="panel" id="tab-extra">
+
+  <div class="section">
+    <h2>Task vs Thread — What's the difference?</h2>
+    <div class="callout callout-info">
+      <div class="explain-label">Plain English</div>
+      <p>A <strong>Thread</strong> is like a physical worker. Creating one is expensive (memory, OS resources). A <strong>Task</strong> is like a <em>unit of work</em> — it describes what needs to be done, and .NET assigns it to a thread from the thread pool automatically. You mostly work with Tasks, not Threads directly.</p>
+    </div>
+    <div class="grid2">
+      <div class="card" style="border-left:3px solid #534AB7">
+        <h4>Thread</h4>
+        <ul style="margin-top:.3rem;display:flex;flex-direction:column;gap:.3rem">
+          <li>OS-level — heavy, ~1MB stack</li>
+          <li>You manage it manually</li>
+          <li>Rare to create directly in modern C#</li>
+          <li>Used internally by the thread pool</li>
+        </ul>
+      </div>
+      <div class="card" style="border-left:3px solid #0F6E56">
+        <h4>Task</h4>
+        <ul style="margin-top:.3rem;display:flex;flex-direction:column;gap:.3rem">
+          <li>Lightweight abstraction over threads</li>
+          <li>.NET manages which thread runs it</li>
+          <li>What you use with async/await</li>
+          <li>Represents a future value/completion</li>
+        </ul>
+      </div>
+    </div>
+<pre><code><span class="cm">// ❌ Old way — manually creating threads</span>
+<span class="kw">var</span> thread = <span class="kw">new</span> Thread(() =&gt; DoSomething());
+thread.Start();
+
+<span class="cm">// ✅ Modern way — Task (thread pool handles it)</span>
+<span class="kw">await</span> Task.Run(() =&gt; DoSomething());
+
+<span class="cm">// ✅ Even better for I/O — just async/await</span>
+<span class="kw">await</span> SomethingAsync();  <span class="cm">// no thread at all during I/O wait!</span>
+</code></pre>
+    <div class="callout callout-warning">
+      <div class="explain-label">Important distinction</div>
+      <p>For I/O operations (DB, HTTP, files), <code>await</code> doesn't use a thread at all while waiting — the OS handles the I/O. For CPU-heavy work, you need <code>Task.Run()</code> to actually put work on a thread pool thread.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>ConfigureAwait(false) — What is it?</h2>
+
+<pre><code><span class="cm">// In a library (not ASP.NET Core directly):</span>
+<span class="kw">public async</span> Task&lt;string&gt; ReadFileAsync(<span class="kw">string</span> path)
+{
+    <span class="kw">var</span> content = <span class="kw">await</span> File.ReadAllTextAsync(path)
+                              .ConfigureAwait(<span class="kw">false</span>);
+    <span class="kw">return</span> content;
+}
+</code></pre>
+
+    <div class="callout callout-info">
+      <div class="explain-label">What does ConfigureAwait(false) mean?</div>
+      <p>By default, after an <code>await</code>, C# tries to resume on the <strong>same synchronization context</strong> (same thread, like the UI thread). <code>ConfigureAwait(false)</code> says "don't bother — resume on any available thread." This is <strong>more efficient</strong> and avoids some deadlock risks. Rule of thumb: use <code>ConfigureAwait(false)</code> in library code. In ASP.NET Core you usually don't need it because there's no SynchronizationContext by default.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Task.WhenAny — do something when the first task completes</h2>
+<pre><code><span class="cm">// Run two tasks, proceed as soon as EITHER finishes</span>
+<span class="kw">var</span> taskA = GetDataFromPrimaryDbAsync();
+<span class="kw">var</span> taskB = GetDataFromFallbackDbAsync();
+
+<span class="kw">var</span> firstDone = <span class="kw">await</span> Task.WhenAny(taskA, taskB);
+<span class="kw">var</span> result = <span class="kw">await</span> firstDone;  <span class="cm">// get the result from whichever finished first</span>
+</code></pre>
+    <div class="callout callout-info">
+      <div class="explain-label">When to use WhenAny vs WhenAll</div>
+      <p><strong>WhenAll</strong> — wait for ALL tasks to finish (like loading all sections of a dashboard). <strong>WhenAny</strong> — proceed as soon as ANY one finishes (like racing two API calls and using whichever is faster, or implementing a timeout). Use WhenAny for "first one wins" scenarios.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Async with Timeout — don't wait forever</h2>
+<pre><code><span class="cm">// ❌ What if the DB never responds? This hangs forever:</span>
+<span class="kw">var</span> data = <span class="kw">await</span> GetDataAsync();
+
+<span class="cm">// ✅ With a timeout using CancellationTokenSource:</span>
+<span class="kw">using var</span> cts = <span class="kw">new</span> CancellationTokenSource(TimeSpan.FromSeconds(5));
+<span class="kw">try</span>
+{
+    <span class="kw">var</span> data = <span class="kw">await</span> GetDataAsync(cts.Token);
+}
+<span class="kw">catch</span> (OperationCanceledException)
+{
+    Console.WriteLine(<span class="str">"Request timed out after 5 seconds"</span>);
+}
+
+<span class="cm">// ✅ Alternative: Task.WhenAny + Task.Delay for timeout</span>
+<span class="kw">var</span> workTask = GetDataAsync();
+<span class="kw">var</span> timeoutTask = Task.Delay(TimeSpan.FromSeconds(5));
+
+<span class="kw">if</span> (<span class="kw">await</span> Task.WhenAny(workTask, timeoutTask) == timeoutTask)
+{
+    Console.WriteLine(<span class="str">"Timed out!"</span>);
+}
+</code></pre>
+    <div class="callout callout-warning">
+      <div class="explain-label">Why timeouts matter in real apps</div>
+      <p>In production, external services (APIs, DBs) can hang. Without a timeout, your thread stays "paused" waiting indefinitely, and your users see a loading spinner forever. Always set timeouts on async I/O calls in real applications. <code>CancellationTokenSource</code> with a <code>TimeSpan</code> is the standard C# way to do this.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Exception handling in async/await</h2>
+<pre><code><span class="cm">// ✅ Exceptions work just like sync — use try/catch normally</span>
+<span class="kw">try</span>
+{
+    <span class="kw">var</span> user = <span class="kw">await</span> GetUserAsync(42);
+    Console.WriteLine(user.Name);
+}
+<span class="kw">catch</span> (SqlException ex)
+{
+    Console.WriteLine(<span class="str">$"DB error: {ex.Message}"</span>);
+}
+<span class="kw">catch</span> (Exception ex)
+{
+    Console.WriteLine(<span class="str">$"Something went wrong: {ex.Message}"</span>);
+}
+
+<span class="cm">// ⚠️ With Task.WhenAll — exceptions are wrapped in AggregateException</span>
+<span class="kw">try</span>
+{
+    <span class="kw">await</span> Task.WhenAll(task1, task2, task3);
+}
+<span class="kw">catch</span> (Exception ex)
+{
+    <span class="cm">// ex is the FIRST exception — others are in task.Exception.InnerExceptions</span>
+    <span class="kw">foreach</span> (<span class="kw">var</span> t <span class="kw">in</span> <span class="kw">new</span>[] { task1, task2, task3 })
+    {
+        <span class="kw">if</span> (t.IsFaulted) Console.WriteLine(t.Exception?.InnerException?.Message);
+    }
+}
+</code></pre>
+    <div class="callout callout-info">
+      <div class="explain-label">📖 How exceptions work with await</div>
+      <p>When you <code>await</code> a task that threw an exception, the exception is re-thrown at the <code>await</code> line — so your normal <code>try/catch</code> works exactly as you'd expect. <strong>The tricky case is <code>Task.WhenAll</code></strong> — if multiple tasks fail, only the first exception is re-thrown directly. To inspect all failures, check each task's <code>.Exception.InnerExceptions</code> after the catch.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>IAsyncEnumerable — streaming async results</h2>
+<pre><code><span class="cm">// ✅ Stream results one by one as they arrive (C# 8+)</span>
+<span class="kw">public async</span> IAsyncEnumerable&lt;Order&gt; GetOrdersStreamAsync()
+{
+    <span class="kw">await foreach</span> (<span class="kw">var</span> order <span class="kw">in</span> _db.Orders.AsAsyncEnumerable())
+    {
+        <span class="kw">yield return</span> order;
+    }
+}
+
+<span class="cm">// Consuming it:</span>
+<span class="kw">await foreach</span> (<span class="kw">var</span> order <span class="kw">in</span> GetOrdersStreamAsync())
+{
+    Console.WriteLine(order.Id);  <span class="cm">// processes each as it arrives</span>
+}
+</code></pre>
+    <div class="callout callout-info">
+      <div class="explain-label">When to use IAsyncEnumerable</div>
+      <p>Normal async methods wait for ALL data to load before returning anything. <code>IAsyncEnumerable</code> lets you process items <strong>as they stream in</strong> — great for large datasets, real-time feeds, or when you want to show partial results to the user immediately instead of waiting for everything to load. Think of it like Netflix buffering vs downloading the whole movie first.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Task.Run() — offloading CPU-heavy work</h2>
+<pre><code><span class="cm">// ❌ Heavy CPU work on the request thread — blocks it for everyone</span>
+[HttpGet(<span class="str">"process"</span>)]
+<span class="kw">public async</span> Task&lt;IActionResult&gt; ProcessData()
+{
+    <span class="kw">var</span> result = HeavyCalculation();  <span class="cm">// blocks thread for 2 seconds</span>
+    <span class="kw">return</span> Ok(result);
+}
+
+<span class="cm">// ✅ Offload CPU work to thread pool</span>
+[HttpGet(<span class="str">"process"</span>)]
+<span class="kw">public async</span> Task&lt;IActionResult&gt; ProcessData()
+{
+    <span class="kw">var</span> result = <span class="kw">await</span> Task.Run(() =&gt; HeavyCalculation());
+    <span class="kw">return</span> Ok(result);
+}
+
+<span class="kw">private</span> <span class="kw">int</span> HeavyCalculation()
+{
+    <span class="cm">// imagine this takes 2 seconds of pure CPU work</span>
+    <span class="kw">return</span> Enumerable.Range(1, 10_000_000).Sum();
+}
+</code></pre>
+    <div class="callout callout-warning">
+      <div class="explain-label">Task.Run() vs plain await — know the difference</div>
+      <p><strong>await on I/O</strong> (DB, HTTP, files) → thread is released, NO new thread created. The OS handles it.<br><strong>Task.Run()</strong> → explicitly puts work on a thread pool thread. Use this for CPU-heavy logic so you don't block the request thread. Don't use Task.Run() for I/O — it wastes a thread for no reason.</p>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>async/await in different contexts</h2>
+    <div class="grid2">
+      <div class="card">
+        <h4>🌐 ASP.NET Core (Web API)</h4>
+        <p>Always use async controllers for DB/HTTP calls. No SynchronizationContext means fewer deadlock concerns. Pass CancellationToken everywhere.</p>
+      </div>
+      <div class="card">
+        <h4>🖥️ WinForms / WPF (Desktop)</h4>
+        <p>UI thread must stay free — use async to avoid "frozen window" syndrome. ConfigureAwait(true) needed to update UI elements after await (default behavior).</p>
+      </div>
+      <div class="card">
+        <h4>📱 MAUI / Xamarin (Mobile)</h4>
+        <p>Same as WPF — UI thread rules. Long operations must be awaited. Use async for any file, network, or DB work.</p>
+      </div>
+      <div class="card">
+        <h4>⚙️ Console App / Worker</h4>
+        <p>Use <code>async Task Main()</code> (C# 7.1+). Background hosted services use <code>IHostedService</code> with async <code>ExecuteAsync</code>.</p>
+      </div>
+    </div>
+<pre><code><span class="cm">// ✅ Async Main — available since C# 7.1</span>
+<span class="kw">static async</span> Task Main(<span class="kw">string</span>[] args)
+{
+    <span class="kw">var</span> result = <span class="kw">await</span> DoSomethingAsync();
+    Console.WriteLine(result);
+}
+</code></pre>
+  </div>
+</div>
+
+<!-- TAB 5: When to Use -->
+<div class="panel" id="tab-when">
+  <div class="section">
+    <h2>Use Synchronous when…</h2>
+    <ul style="margin:.5rem 0;display:flex;flex-direction:column;gap:.4rem">
+      <li><span class="badge badge-sync">USE SYNC</span> Simple CPU-bound tasks with no I/O (calculations, in-memory transformations)</li>
+      <li><span class="badge badge-sync">USE SYNC</span> Console scripts or CLI tools where throughput doesn't matter</li>
+      <li><span class="badge badge-sync">USE SYNC</span> Very short operations where async overhead would outweigh the benefit</li>
+      <li><span class="badge badge-sync">USE SYNC</span> Legacy codebases or libraries that are not async-ready</li>
+      <li><span class="badge badge-sync">USE SYNC</span> Startup/initialization code that runs once before the app starts serving</li>
+      <li><span class="badge badge-sync">USE SYNC</span> When you need strict ordering and don't want to reason about concurrency</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>Use Asynchronous when…</h2>
+    <ul style="margin:.5rem 0;display:flex;flex-direction:column;gap:.4rem">
+      <li><span class="badge badge-async">USE ASYNC</span> Any I/O-bound work: database queries, HTTP calls, file reads, network sockets</li>
+      <li><span class="badge badge-async">USE ASYNC</span> ASP.NET Core controllers handling many concurrent users</li>
+      <li><span class="badge badge-async">USE ASYNC</span> Calling external APIs (REST, gRPC, messaging queues)</li>
+      <li><span class="badge badge-async">USE ASYNC</span> Reading / writing large files where you don't want to freeze the app</li>
+      <li><span class="badge badge-async">USE ASYNC</span> Background workers that need to stay alive and responsive</li>
+      <li><span class="badge badge-async">USE ASYNC</span> Desktop / mobile apps — keep UI thread unblocked so UI stays responsive</li>
+      <li><span class="badge badge-async">USE ASYNC</span> Microservices communicating over HTTP with each other</li>
+    </ul>
+  </div>
+
+  <div class="section">
+    <h2>Decision tree</h2>
+    <svg class="vis" viewBox="0 0 640 315" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="a3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+      <rect x="210" y="10" width="220" height="40" rx="8" fill="#AFA9EC" stroke="#534AB7" stroke-width="0.5"/>
+      <text x="320" y="34" font-size="13" fill="#26215C" text-anchor="middle" dominant-baseline="central" font-weight="500">Does the operation involve I/O?</text>
+      <line x1="250" y1="50" x2="145" y2="100" stroke="#888780" stroke-width="1" marker-end="url(#a3)"/>
+      <text x="172" y="82" font-size="11" fill="#1D9E75" font-weight="500">YES</text>
+      <rect x="60" y="100" width="170" height="38" rx="8" fill="#9FE1CB" stroke="#0F6E56" stroke-width="0.5"/>
+      <text x="145" y="123" font-size="13" fill="#04342C" text-anchor="middle" dominant-baseline="central">I/O-bound work</text>
+      <line x1="145" y1="138" x2="145" y2="185" stroke="#888780" stroke-width="1" marker-end="url(#a3)"/>
+      <rect x="60" y="185" width="170" height="38" rx="8" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+      <text x="145" y="208" font-size="13" fill="#E1F5EE" text-anchor="middle" dominant-baseline="central" font-weight="500">✅ Use ASYNC</text>
+      <line x1="390" y1="50" x2="490" y2="100" stroke="#888780" stroke-width="1" marker-end="url(#a3)"/>
+      <text x="456" y="82" font-size="11" fill="#E24B4A" font-weight="500">NO</text>
+      <rect x="410" y="100" width="170" height="38" rx="8" fill="#F5C4B3" stroke="#993C1D" stroke-width="0.5"/>
+      <text x="495" y="123" font-size="13" fill="#4A1B0C" text-anchor="middle" dominant-baseline="central">CPU-bound / pure logic</text>
+      <line x1="495" y1="138" x2="495" y2="185" stroke="#888780" stroke-width="1" marker-end="url(#a3)"/>
+      <rect x="405" y="185" width="180" height="38" rx="8" fill="#AFA9EC" stroke="#534AB7" stroke-width="0.5"/>
+      <text x="495" y="207" font-size="12" fill="#26215C" text-anchor="middle" dominant-baseline="central">Is it long-running (&gt;50ms)?</text>
+      <line x1="450" y1="223" x2="380" y2="265" stroke="#888780" stroke-width="1" marker-end="url(#a3)"/>
+      <text x="390" y="253" font-size="11" fill="#1D9E75" font-weight="500">YES</text>
+      <rect x="295" y="265" width="170" height="38" rx="8" fill="#0F6E56" stroke="#085041" stroke-width="0.5"/>
+      <text x="380" y="286" font-size="11" fill="#E1F5EE" text-anchor="middle" dominant-baseline="central" font-weight="500">Task.Run() + thread pool</text>
+      <line x1="552" y1="223" x2="590" y2="265" stroke="#888780" stroke-width="1" marker-end="url(#a3)"/>
+      <text x="580" y="253" font-size="11" fill="#E24B4A" font-weight="500">NO</text>
+      <rect x="510" y="265" width="120" height="38" rx="8" fill="#534AB7" stroke="#3C3489" stroke-width="0.5"/>
+      <text x="570" y="286" font-size="12" fill="#EEEDFE" text-anchor="middle" dominant-baseline="central" font-weight="500">Use SYNC</text>
+    </svg>
+  </div>
+</div>
+
+<!-- TAB 6: Comparison Table -->
+<div class="panel" id="tab-compare">
+  <div class="section">
+    <h2>Full comparison</h2>
+    <table>
+      <thead>
+        <tr>
+          <th style="width:24%">Aspect</th>
+          <th style="width:38%">Synchronous</th>
+          <th style="width:38%">Asynchronous</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Execution flow</strong></td><td>Sequential — each line finishes before the next starts</td><td>Concurrent — awaited operations release the thread</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Thread behavior</strong></td><td><span class="tag-n">Blocked</span> during I/O — thread sits idle</td><td><span class="tag-y">Released</span> during I/O — thread serves other work</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Scalability</strong></td><td><span class="tag-n">Low</span> — one blocked thread per in-flight request</td><td><span class="tag-y">High</span> — same threads handle thousands of requests</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Complexity</strong></td><td><span class="tag-y">Simple</span> — reads top to bottom like normal code</td><td><span class="tag-m">Moderate</span> — state machines, exception propagation</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Error handling</strong></td><td>Standard try/catch, simple and predictable</td><td>try/catch works, but AggregateException with Task.WaitAll</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Debugging</strong></td><td><span class="tag-y">Easy</span> — linear stack trace</td><td><span class="tag-m">Harder</span> — stack traces cross await boundaries</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">CPU-bound tasks</strong></td><td><span class="tag-y">Natural fit</span> — no overhead</td><td>Use <code>Task.Run()</code> to offload to thread pool</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">I/O-bound tasks</strong></td><td><span class="tag-n">Wasteful</span> — threads wasted waiting</td><td><span class="tag-y">Ideal</span> — thread freed during wait</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Memory usage</strong></td><td>Higher under load — each blocked thread uses ~1MB stack</td><td>Lower — fewer threads needed for same concurrency</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">UI responsiveness</strong></td><td><span class="tag-n">Freezes UI</span> on long operations</td><td><span class="tag-y">Keeps UI responsive</span> — never blocks the UI thread</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">.NET keyword</strong></td><td>Normal method, no special keywords</td><td><code>async</code> / <code>await</code> + <code>Task</code> / <code>Task&lt;T&gt;</code></td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Return type (.NET)</strong></td><td>Actual type: <code>string</code>, <code>int</code>, <code>void</code></td><td><code>Task</code>, <code>Task&lt;T&gt;</code>, <code>ValueTask&lt;T&gt;</code></td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Best for</strong></td><td>Scripts, CPU math, in-memory ops, simple CLIs</td><td>Web APIs, DB queries, HTTP calls, file I/O, mobile apps</td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Anti-patterns</strong></td><td>Sync over async (<code>.Result</code> / <code>.Wait()</code>)</td><td><code>async void</code>, missing <code>await</code>, not passing <code>CancellationToken</code></td></tr>
+        <tr><td><strong style="font-weight:500;color:var(--color-text)">Overhead</strong></td><td>None — direct call</td><td>Small — state machine allocation (often negligible)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>The golden rule</h2>
+    <div class="grid2">
+      <div class="card" style="border-left:3px solid #534AB7;border-radius:0 10px 10px 0">
+        <h4>I/O-bound? → async/await</h4>
+        <p>Waiting on a network, disk, DB? Let the thread go. Use <code>await</code>. This is 90% of ASP.NET Core work.</p>
+      </div>
+      <div class="card" style="border-left:3px solid #0F6E56;border-radius:0 10px 10px 0">
+        <h4>CPU-bound? → Task.Run()</h4>
+        <p>Heavy computation? Don't block the request thread — offload to a background thread with <code>Task.Run()</code>.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>
